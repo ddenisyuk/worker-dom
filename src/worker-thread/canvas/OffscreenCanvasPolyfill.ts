@@ -49,6 +49,8 @@ export class OffscreenCanvasPolyfill<ElementType extends HTMLElement> {
 }
 
 class OffscreenCanvasRenderingContext2DPolyfill<ElementType extends HTMLElement> implements CanvasRenderingContext2D, TransferrableObject {
+  private readonly imageDataStub = new Uint8ClampedArray([127, 127, 127, 127]);
+
   private canvasElement: ElementType;
   private lineDash: number[];
   private objectIndex = 0;
@@ -91,6 +93,10 @@ class OffscreenCanvasRenderingContext2DPolyfill<ElementType extends HTMLElement>
 
   get canvas(): ElementType {
     return this.canvasElement;
+  }
+
+  roundRect(x: number, y: number, w: number, h: number, radii?: number | DOMPointInit | (number | DOMPointInit)[] | undefined): void {
+    this[TransferrableKeys.mutated]('roundRect', [...arguments]);
   }
 
   clearRect(x: number, y: number, w: number, h: number): void {
@@ -326,8 +332,14 @@ class OffscreenCanvasRenderingContext2DPolyfill<ElementType extends HTMLElement>
     return {} as ImageData;
   }
 
-  getImageData(): ImageData {
-    return {} as ImageData;
+  getImageData(x: number, y: number, sw: number, sh: number): ImageData {
+    const data = new Uint8ClampedArray(sw * sh * 4);
+    data[0] = this.imageDataStub[0];
+    data[1] = this.imageDataStub[1];
+    data[2] = this.imageDataStub[2];
+    data[3] = this.imageDataStub[3];
+
+    return {data: data, height: sh, width: sw} as ImageData;
   }
 
   putImageData() {}
