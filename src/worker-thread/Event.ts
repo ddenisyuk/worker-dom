@@ -158,6 +158,18 @@ export function propagate(global: WorkerDOMGlobalScope): void {
     const event = data[TransferrableKeys.event] as TransferrableEvent;
     const node = get(event[TransferrableKeys.index]);
     if (node !== null) {
+
+      const propertiesValues = event[TransferrableKeys.listenableProperties] || [];
+      if (propertiesValues.length > 0) {
+        const propertiesNames = node[TransferrableKeys.listenableProperties] || [];
+        for (let i = 0; i < propertiesNames.length; i++) {
+          const propertyName = propertiesNames[i];
+          if (node[propertyName] != propertiesValues[i]) {
+            node[propertyName] = propertiesValues[i];
+          }
+        }
+      }
+
       node.dispatchEvent(
         Object.assign(
           new Event(event[TransferrableKeys.type], {

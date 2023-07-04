@@ -44,6 +44,9 @@ import { DOMTokenList } from '../worker-thread/dom/DOMTokenList';
 import { HTMLDataListElement } from '../worker-thread/dom/HTMLDataListElement';
 import { Element } from '../worker-thread/dom/Element';
 import { rafPolyfill, cafPolyfill } from '../worker-thread/AnimationFrame';
+import { HTMLMediaElement } from '../worker-thread/dom/HTMLMediaElement';
+import { HTMLAudioElement } from '../worker-thread/dom/HTMLAudioElement';
+import { HTMLVideoElement } from '../worker-thread/dom/HTMLVideoElement';
 
 Object.defineProperty(global, 'ServiceWorkerContainer', {
   configurable: true,
@@ -109,6 +112,9 @@ const GlobalScope: GlobalScope = {
   HTMLTableSectionElement,
   HTMLTimeElement,
   SVGElement,
+  HTMLMediaElement,
+  HTMLAudioElement,
+  HTMLVideoElement,
   Text,
   Event: WorkerDOMEvent,
   MutationObserver,

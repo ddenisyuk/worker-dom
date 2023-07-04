@@ -78,6 +78,8 @@ export const enum TransferrableKeys {
   propertyEventHandlers = 76,
   functionIdentifier = 77,
   functionArguments = 78,
+  listenableProperties = 79,
+
   // This must always be the last numerically ordered Key, for testing purposes.
-  END = 78,
+  END = 80,
 }

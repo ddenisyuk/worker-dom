@@ -47,6 +47,9 @@ import { SVGElement } from './dom/SVGElement';
 import { Text } from './dom/Text';
 import { wrap as longTaskWrap } from './long-task';
 import { HydrateFunction } from './hydrate';
+import { HTMLMediaElement } from './dom/HTMLMediaElement';
+import { HTMLAudioElement } from './dom/HTMLAudioElement';
+import { HTMLVideoElement } from './dom/HTMLVideoElement';
 
 declare const WORKER_DOM_DEBUG: boolean;
 
@@ -91,6 +94,9 @@ const globalScope: GlobalScope = {
   HTMLTableSectionElement,
   HTMLTimeElement,
   SVGElement,
+  HTMLMediaElement,
+  HTMLAudioElement,
+  HTMLVideoElement,
   Text,
   Event: WorkerDOMEvent,
   MutationObserver,
