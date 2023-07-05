@@ -30,21 +30,9 @@ export class HTMLCanvasElement extends HTMLElement {
       case 'experimental-webgl':
       case 'webgl2':
         if (!this.contextWebGL) {
-          this.contextWebGL = new WebGLRenderingContextPolyfill(this, {
-            contextAttributes: contextAttributes,
-            parameters: {
-              7938: "WebGL 2.0",
-              7937: 'WebKit WebGL',
-              7936: 'WebKit',
-              34930: 16,
-              3379: 16384,
-              36348: 15,
-              33308: null,
-            }
-          });
-
-          // TODO: pass contextAttributes to main thread
-          this.createObjectReference(this.contextWebGL.id, "getContext", [contextType]);
+          const id = WebGLRenderingContextPolyfill.nextObjectId();
+          this.createObjectReference(id, "getContext", [...arguments]);
+          this.contextWebGL = new WebGLRenderingContextPolyfill(id, this, contextAttributes);
         }
         return this.contextWebGL;
       default:

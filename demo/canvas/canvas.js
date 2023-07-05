@@ -2,6 +2,9 @@ const existingCanvasBtn = document.getElementById('existingCanvasBtn');
 const newCanvasBtn = document.getElementById('newCanvasBtn');
 const doubleCanvasBtn = document.getElementById('doubleCanvasBtn');
 
+const myCanvas2 = document.getElementById('myCanvas2');
+const webgl = myCanvas2.getContext('webgl2');
+
 const myCanvas = document.getElementById('myCanvas');
 const myCtx = myCanvas.getContext('2d');
 
@@ -31,6 +34,7 @@ myCanvas.addEventListener('mouseup', (e) => {
 });
 
 existingCanvasBtn.addEventListener('click', async () => {
+
   // Scenario #1:
   // Canvas is already on the page
   const img = document.getElementById('myImg');

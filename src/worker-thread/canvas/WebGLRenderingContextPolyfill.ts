@@ -26,14 +26,16 @@ import {serializeTransferrableObject} from "../serializeTransferrableObject";
 import {
   ANGLEInstancedArrays,
   EXTBlendMinmax,
-  EXTColorBufferHalfFloat, EXTDisjointTimerQuery,
+  EXTColorBufferHalfFloat,
+  EXTDisjointTimerQuery,
   EXTSRGB,
   EXTTextureCompressionBptc,
   EXTTextureCompressionRgtc,
   EXTTextureFilterAnisotropic,
   EXTTextureNorm16,
   GenericExtension,
-  KHRParallelShaderCompile, OESDrawBuffersIndexed,
+  KHRParallelShaderCompile,
+  OESDrawBuffersIndexed,
   OESStandardDerivatives,
   OESTextureHalfFloat,
   OESVertexArrayObject,
@@ -45,12 +47,18 @@ import {
   WEBGLCompressedTexturePvrtc,
   WEBGLCompressedTextureS3tc,
   WEBGLCompressedTextureS3tcSrgb,
-  WEBGLDebugRendererInfo, WEBGLDebugShaders, WEBGLDepthTexture, WEBGLDrawBuffers, WEBGLLoseContext, WEBGLMultiDraw
+  WEBGLDebugRendererInfo,
+  WEBGLDebugShaders,
+  WEBGLDepthTexture,
+  WEBGLDrawBuffers,
+  WEBGLLoseContext,
+  WEBGLMultiDraw
 } from "./gl/GLExtension";
+import {callFunction} from "../function";
 
 export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2RenderingContext, TransferrableObject {
 
-  private static _objectIndex = 1;
+  private static _objectIndex = 1000; // TODO: id must be unique across all thread, see OffscreenCanvasRenderingContext2DPolyfill.objectIndex
 
   public readonly id: number;
   public readonly canvas: HTMLCanvasElement | any;
@@ -58,11 +66,13 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   public readonly drawingBufferWidth: GLsizei;
   public readonly drawingBufferColorSpace: PredefinedColorSpace = "srgb";
 
+  private readonly requiredParams: number[] = [this.VERSION, this.RENDERER, this.VENDOR, this.MAX_TEXTURE_IMAGE_UNITS, this.MAX_TEXTURE_SIZE, this.MAX_VARYING_VECTORS];
+
   private readonly _serializedAsTransferrableObject: number[];
-  private readonly _capabilities: { [key: GLenum]: boolean };
-  private readonly _parameters: { [key: string]: any };
-  private readonly _extensions: string[] | null = null;
-  private readonly _contextAttributes: WebGLContextAttributes | null = null;
+
+  private _parameters: { [key: number]: any };
+  private _extensions: string[] | null = null;
+  private _contextAttributes: WebGLContextAttributes | null = null;
   private readonly _buffers: { [key: string]: vGLBuffer | null } = {
     arrayBuffer: null,
     elementArrayBuffer: null,
@@ -84,34 +94,44 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     transformFeedback: null,
     sampler: null
   };
+  // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/isEnabled
+  // By default, all capabilities except gl.DITHER are disabled.
+  private readonly _capabilities: { [key: GLenum]: boolean } = {
+    [this.DITHER]: true,
+    [this.BLEND]: false,
+    [this.CULL_FACE]: false,
+    [this.DEPTH_TEST]: false,
+    [this.POLYGON_OFFSET_FILL]: false,
+    [this.SAMPLE_ALPHA_TO_COVERAGE]: false,
+    [this.SAMPLE_COVERAGE]: false,
+    [this.SCISSOR_TEST]: false,
+    [this.STENCIL_TEST]: false,
+    [this.RASTERIZER_DISCARD]: false,
+  };
 
-  constructor(canvas: HTMLCanvasElement, options?: any) {
+  constructor(id: number, canvas: HTMLCanvasElement, contextAttributes?: WebGLContextAttributes | null) {
     super();
-    this.id = this.nextObjectId();
+    this.id = id;
     this._serializedAsTransferrableObject = [TransferrableObjectType.TransferObject, this.id];
     this.canvas = canvas;
 
     this.drawingBufferHeight = canvas.height;
     this.drawingBufferWidth = canvas.width;
 
-    this._parameters = options?.parameters || {};
-    this._extensions = options?.extensions || null;
-    this._contextAttributes = options?.contextAttributes || null;
+    this._parameters = {};
+    this._extensions = [];
+    this._contextAttributes = contextAttributes || null;
 
-    // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/isEnabled
-    // By default, all capabilities except gl.DITHER are disabled.
-    this._capabilities = {
-      [this.DITHER]: true,
-      [this.BLEND]: false,
-      [this.CULL_FACE]: false,
-      [this.DEPTH_TEST]: false,
-      [this.POLYGON_OFFSET_FILL]: false,
-      [this.SAMPLE_ALPHA_TO_COVERAGE]: false,
-      [this.SAMPLE_COVERAGE]: false,
-      [this.SCISSOR_TEST]: false,
-      [this.STENCIL_TEST]: false,
-      [this.RASTERIZER_DISCARD]: false,
-    };
+    this.requiredParams.forEach(parameter => {
+      callFunction(this.canvas.ownerDocument as Document, this, "getParameter", [parameter])
+        .then(result => this._parameters[parameter] = result);
+    });
+
+    callFunction(this.canvas.ownerDocument as Document, this, "getSupportedExtensions", [])
+      .then(result => this._extensions = result);
+
+    callFunction(this.canvas.ownerDocument as Document, this, "getContextAttributes", [])
+      .then(result => this._contextAttributes = result);
   }
 
   activeTexture(texture: GLenum): void {
@@ -691,13 +711,13 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   getExtension(name: string): any {
-    if (!this._extensions?.includes(name)) {
+    if (!this._extensions || !this._extensions.includes(name)) {
       return null;
     }
-    //https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API#extensions
     const id = this.nextObjectId();
     this.createObjectReference(id, 'getExtension', [...arguments]);
 
+    // https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API#extensions
     switch (name) {
       case 'ANGLE_instanced_arrays':
         return new ANGLEInstancedArrays(id, this);
@@ -1458,6 +1478,10 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   nextObjectId() {
+    return WebGLRenderingContextPolyfill.nextObjectId();
+  }
+
+  static nextObjectId() {
     return WebGLRenderingContextPolyfill._objectIndex++;
   }
 
