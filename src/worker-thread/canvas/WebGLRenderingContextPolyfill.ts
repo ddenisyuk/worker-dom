@@ -1,12 +1,12 @@
-import {HTMLCanvasElement} from "../dom/HTMLCanvasElement";
-import {GLConstants} from "./gl/GLConstants";
-import {TransferrableKeys} from "../../transfer/TransferrableKeys";
-import {TransferrableObject} from "../worker-thread";
-import {transfer} from "../MutationTransfer";
-import {Document} from "../dom/Document";
-import {TransferrableMutationType, TransferrableObjectType} from "../../transfer/TransferrableMutation";
-import {vGLShader} from "./gl/vGLShader";
-import {vGLProgram} from "./gl/vGLProgram";
+import { HTMLCanvasElement } from '../dom/HTMLCanvasElement';
+import { GLConstants } from './gl/GLConstants';
+import { TransferrableKeys } from '../../transfer/TransferrableKeys';
+import { TransferrableObject } from '../worker-thread';
+import { transfer } from '../MutationTransfer';
+import { Document } from '../dom/Document';
+import { TransferrableMutationType, TransferrableObjectType } from '../../transfer/TransferrableMutation';
+import { GLShader } from './gl/GLShader';
+import { GLProgram } from './gl/GLProgram';
 import {
   TransferrableGLObject,
   vGLActiveInfo,
@@ -20,9 +20,9 @@ import {
   vGLTexture,
   vGLTransformFeedback,
   vGLVertexArrayObject,
-} from "./gl/TransferrableGLObjectTypes";
-import {store} from "../strings";
-import {serializeTransferrableObject} from "../serializeTransferrableObject";
+} from './gl/TransferrableGLObjectTypes';
+import { store } from '../strings';
+import { serializeTransferrableObject } from '../serializeTransferrableObject';
 import {
   ANGLEInstancedArrays,
   EXTBlendMinmax,
@@ -52,21 +52,26 @@ import {
   WEBGLDepthTexture,
   WEBGLDrawBuffers,
   WEBGLLoseContext,
-  WEBGLMultiDraw
-} from "./gl/GLExtension";
-import {callFunction} from "../function";
+  WEBGLMultiDraw,
+} from './gl/GLExtension';
+import { callFunction } from '../function';
+import { createObjectReference } from '../object-reference';
 
 export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2RenderingContext, TransferrableObject {
-
-  private static _objectIndex = 1000; // TODO: id must be unique across all thread, see OffscreenCanvasRenderingContext2DPolyfill.objectIndex
-
   public readonly id: number;
   public readonly canvas: HTMLCanvasElement | any;
   public readonly drawingBufferHeight: GLsizei;
   public readonly drawingBufferWidth: GLsizei;
-  public readonly drawingBufferColorSpace: PredefinedColorSpace = "srgb";
+  public readonly drawingBufferColorSpace: PredefinedColorSpace = 'srgb';
 
-  private readonly requiredParams: number[] = [this.VERSION, this.RENDERER, this.VENDOR, this.MAX_TEXTURE_IMAGE_UNITS, this.MAX_TEXTURE_SIZE, this.MAX_VARYING_VECTORS];
+  private readonly requiredParams: number[] = [
+    this.VERSION,
+    this.RENDERER,
+    this.VENDOR,
+    this.MAX_TEXTURE_IMAGE_UNITS,
+    this.MAX_TEXTURE_SIZE,
+    this.MAX_VARYING_VECTORS,
+  ];
 
   private readonly _serializedAsTransferrableObject: number[];
 
@@ -92,7 +97,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     program: null,
     vertexArray: null,
     transformFeedback: null,
-    sampler: null
+    sampler: null,
   };
   // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/isEnabled
   // By default, all capabilities except gl.DITHER are disabled.
@@ -122,23 +127,20 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this._extensions = [];
     this._contextAttributes = contextAttributes || null;
 
-    this.requiredParams.forEach(parameter => {
-      callFunction(this.canvas.ownerDocument as Document, this, "getParameter", [parameter])
-        .then(result => this._parameters[parameter] = result);
+    this.requiredParams.forEach((parameter) => {
+      callFunction(this.canvas.ownerDocument as Document, this, 'getParameter', [parameter]).then((result) => (this._parameters[parameter] = result));
     });
 
-    callFunction(this.canvas.ownerDocument as Document, this, "getSupportedExtensions", [])
-      .then(result => this._extensions = result);
+    callFunction(this.canvas.ownerDocument as Document, this, 'getSupportedExtensions', []).then((result) => (this._extensions = result));
 
-    callFunction(this.canvas.ownerDocument as Document, this, "getContextAttributes", [])
-      .then(result => this._contextAttributes = result);
+    callFunction(this.canvas.ownerDocument as Document, this, 'getContextAttributes', []).then((result) => (this._contextAttributes = result));
   }
 
   activeTexture(texture: GLenum): void {
     this[TransferrableKeys.mutated]('activeTexture', [...arguments]);
   }
 
-  attachShader(program: vGLProgram, shader: vGLShader): void {
+  attachShader(program: GLProgram, shader: GLShader): void {
     this[TransferrableKeys.mutated]('attachShader', [...arguments]);
     program.attachShader(shader);
   }
@@ -151,7 +153,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('beginTransformFeedback', [...arguments]);
   }
 
-  bindAttribLocation(program: vGLProgram, index: GLuint, name: string): void {
+  bindAttribLocation(program: GLProgram, index: GLuint, name: string): void {
     this[TransferrableKeys.mutated]('bindAttribLocation', [...arguments]);
   }
 
@@ -189,7 +191,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
         this._buffers.readFramebuffer = framebuffer;
         break;
       default:
-        throw `Unexpected target: ${target}`;
+        throw new Error(`Unexpected target: ${target}`);
     }
   }
 
@@ -200,7 +202,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
         this._buffers.renderbuffer = renderbuffer;
         break;
       default:
-        throw `Unexpected target: ${target}`;
+        throw new Error(`Unexpected target: ${target}`);
     }
   }
 
@@ -220,7 +222,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       case this.TEXTURE_2D_ARRAY:
       case this.TEXTURE_3D:
       default:
-        throw `Unexpected texture target: ${target}`;
+        throw new Error(`Unexpected texture target: ${target}`);
     }
   }
 
@@ -231,7 +233,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
         this._bindings.transformFeedback = tf;
         break;
       default:
-        throw `Unexpected target: ${target}`;
+        throw new Error(`Unexpected target: ${target}`);
     }
   }
 
@@ -260,7 +262,18 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('blendFuncSeparate', [...arguments]);
   }
 
-  blitFramebuffer(srcX0: GLint, srcY0: GLint, srcX1: GLint, srcY1: GLint, dstX0: GLint, dstY0: GLint, dstX1: GLint, dstY1: GLint, mask: GLbitfield, filter: GLenum): void {
+  blitFramebuffer(
+    srcX0: GLint,
+    srcY0: GLint,
+    srcX1: GLint,
+    srcY1: GLint,
+    dstX0: GLint,
+    dstY0: GLint,
+    dstX1: GLint,
+    dstY1: GLint,
+    mask: GLbitfield,
+    filter: GLenum,
+  ): void {
     this[TransferrableKeys.mutated]('blitFramebuffer', [...arguments]);
   }
 
@@ -275,7 +288,8 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       if (size) {
         if (typeof size === 'number') {
           buffer.size = size;
-        } else { // BufferSource or ArrayBufferView
+        } else {
+          // BufferSource or ArrayBufferView
           buffer.size = size.byteLength;
         }
       } else {
@@ -342,33 +356,163 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('colorMask', [...arguments]);
   }
 
-  compileShader(shader: vGLShader): void {
+  compileShader(shader: GLShader): void {
     this[TransferrableKeys.mutated]('compileShader', [...arguments]);
     shader.compiled = true;
   }
 
-  compressedTexImage2D(target: GLenum, level: GLint, internalformat: GLenum, width: GLsizei, height: GLsizei, border: GLint, imageSize: GLsizei, offset: GLintptr): void;
-  compressedTexImage2D(target: GLenum, level: GLint, internalformat: GLenum, width: GLsizei, height: GLsizei, border: GLint, srcData: ArrayBufferView, srcOffset?: GLuint, srcLengthOverride?: GLuint): void;
-  compressedTexImage2D(target: GLenum, level: GLint, internalformat: GLenum, width: GLsizei, height: GLsizei, border: GLint, imageSize: GLsizei | ArrayBufferView, offset?: GLintptr | GLuint, srcLengthOverride?: GLuint): void {
+  compressedTexImage2D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLenum,
+    width: GLsizei,
+    height: GLsizei,
+    border: GLint,
+    imageSize: GLsizei,
+    offset: GLintptr,
+  ): void;
+  compressedTexImage2D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLenum,
+    width: GLsizei,
+    height: GLsizei,
+    border: GLint,
+    srcData: ArrayBufferView,
+    srcOffset?: GLuint,
+    srcLengthOverride?: GLuint,
+  ): void;
+  compressedTexImage2D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLenum,
+    width: GLsizei,
+    height: GLsizei,
+    border: GLint,
+    imageSize: GLsizei | ArrayBufferView,
+    offset?: GLintptr | GLuint,
+    srcLengthOverride?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('compressedTexImage2D', [...arguments]);
   }
 
-  compressedTexImage3D(target: GLenum, level: GLint, internalformat: GLenum, width: GLsizei, height: GLsizei, depth: GLsizei, border: GLint, imageSize: GLsizei, offset: GLintptr): void;
-  compressedTexImage3D(target: GLenum, level: GLint, internalformat: GLenum, width: GLsizei, height: GLsizei, depth: GLsizei, border: GLint, srcData: ArrayBufferView, srcOffset?: GLuint, srcLengthOverride?: GLuint): void;
-  compressedTexImage3D(target: GLenum, level: GLint, internalformat: GLenum, width: GLsizei, height: GLsizei, depth: GLsizei, border: GLint, imageSize: GLsizei | ArrayBufferView, offset?: GLintptr | GLuint, srcLengthOverride?: GLuint): void {
+  compressedTexImage3D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLenum,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    border: GLint,
+    imageSize: GLsizei,
+    offset: GLintptr,
+  ): void;
+  compressedTexImage3D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLenum,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    border: GLint,
+    srcData: ArrayBufferView,
+    srcOffset?: GLuint,
+    srcLengthOverride?: GLuint,
+  ): void;
+  compressedTexImage3D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLenum,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    border: GLint,
+    imageSize: GLsizei | ArrayBufferView,
+    offset?: GLintptr | GLuint,
+    srcLengthOverride?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('compressedTexImage3D', [...arguments]);
   }
 
-
-  compressedTexSubImage2D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, width: GLsizei, height: GLsizei, format: GLenum, imageSize: GLsizei, offset: GLintptr): void;
-  compressedTexSubImage2D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, width: GLsizei, height: GLsizei, format: GLenum, srcData: ArrayBufferView, srcOffset?: GLuint, srcLengthOverride?: GLuint): void;
-  compressedTexSubImage2D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, width: GLsizei, height: GLsizei, format: GLenum, imageSize: GLsizei | ArrayBufferView, offset?: GLintptr | GLuint, srcLengthOverride?: GLuint): void {
+  compressedTexSubImage2D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    format: GLenum,
+    imageSize: GLsizei,
+    offset: GLintptr,
+  ): void;
+  compressedTexSubImage2D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    format: GLenum,
+    srcData: ArrayBufferView,
+    srcOffset?: GLuint,
+    srcLengthOverride?: GLuint,
+  ): void;
+  compressedTexSubImage2D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    format: GLenum,
+    imageSize: GLsizei | ArrayBufferView,
+    offset?: GLintptr | GLuint,
+    srcLengthOverride?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('compressedTexSubImage2D', [...arguments]);
   }
 
-  compressedTexSubImage3D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, zoffset: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, format: GLenum, imageSize: GLsizei, offset: GLintptr): void;
-  compressedTexSubImage3D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, zoffset: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, format: GLenum, srcData: ArrayBufferView, srcOffset?: GLuint, srcLengthOverride?: GLuint): void;
-  compressedTexSubImage3D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, zoffset: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, format: GLenum, imageSize: GLsizei | ArrayBufferView, offset?: GLintptr | GLuint, srcLengthOverride?: GLuint): void {
+  compressedTexSubImage3D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    zoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    format: GLenum,
+    imageSize: GLsizei,
+    offset: GLintptr,
+  ): void;
+  compressedTexSubImage3D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    zoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    format: GLenum,
+    srcData: ArrayBufferView,
+    srcOffset?: GLuint,
+    srcLengthOverride?: GLuint,
+  ): void;
+  compressedTexSubImage3D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    zoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    format: GLenum,
+    imageSize: GLsizei | ArrayBufferView,
+    offset?: GLintptr | GLuint,
+    srcLengthOverride?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('compressedTexSubImage3D', [...arguments]);
   }
 
@@ -384,67 +528,67 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('copyTexSubImage2D', [...arguments]);
   }
 
-  copyTexSubImage3D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, zoffset: GLint, x: GLint, y: GLint, width: GLsizei, height: GLsizei): void {
+  copyTexSubImage3D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    zoffset: GLint,
+    x: GLint,
+    y: GLint,
+    width: GLsizei,
+    height: GLsizei,
+  ): void {
     this[TransferrableKeys.mutated]('copyTexSubImage3D', [...arguments]);
   }
 
   createBuffer(): vGLBuffer | null {
-    const bufferId = this.nextObjectId();
-    this.createObjectReference(bufferId, 'createBuffer', []);
+    const bufferId = this.createObjectReference('createBuffer', []);
     return new vGLBuffer(bufferId);
   }
 
   createFramebuffer(): vGLFramebuffer | null {
-    const framebufferId = this.nextObjectId();
-    this.createObjectReference(framebufferId, 'createFramebuffer', []);
+    const framebufferId = this.createObjectReference('createFramebuffer', []);
     return new vGLFramebuffer(framebufferId);
   }
 
-  createProgram(): vGLProgram | null {
-    const programId = this.nextObjectId();
-    this.createObjectReference(programId, 'createProgram', []);
-    return new vGLProgram(programId);
+  createProgram(): GLProgram | null {
+    const programId = this.createObjectReference('createProgram', []);
+    return new GLProgram(programId);
   }
 
   createQuery(): vGLQuery | null {
-    const queryId = this.nextObjectId();
-    this.createObjectReference(queryId, 'createQuery', []);
+    const queryId = this.createObjectReference('createQuery', []);
     return new vGLQuery(queryId);
   }
 
   createRenderbuffer(): vGLRenderbuffer | null {
-    const renderbufferId = this.nextObjectId();
-    this.createObjectReference(renderbufferId, 'createRenderbuffer', []);
+    const renderbufferId = this.createObjectReference('createRenderbuffer', []);
     return new vGLRenderbuffer(renderbufferId);
   }
 
   createSampler(): vGLSampler | null {
-    const samplerId = this.nextObjectId();
-    this.createObjectReference(samplerId, 'createSampler', []);
+    const samplerId = this.createObjectReference('createSampler', []);
     return new vGLSampler(samplerId);
   }
 
-  createShader(type: GLenum): vGLShader | null {
-    const shaderId = this.nextObjectId();
-    this.createObjectReference(shaderId, 'createShader', [...arguments]);
-    return new vGLShader(shaderId, type);
+  createShader(type: GLenum): GLShader | null {
+    const shaderId = this.createObjectReference('createShader', [...arguments]);
+    return new GLShader(shaderId, type);
   }
 
   createTexture(): vGLTexture | null {
-    const textureId = this.nextObjectId();
-    this.createObjectReference(textureId, 'createTexture', []);
+    const textureId = this.createObjectReference('createTexture', []);
     return new vGLTexture(textureId);
   }
 
   createTransformFeedback(): vGLTransformFeedback | null {
-    const textureId = this.nextObjectId();
-    this.createObjectReference(textureId, 'createTransformFeedback', []);
-    return new vGLTransformFeedback(textureId);
+    const transformFeedbackId = this.createObjectReference('createTransformFeedback', []);
+    return new vGLTransformFeedback(transformFeedbackId);
   }
 
   createVertexArray(): vGLVertexArrayObject | null {
-    const vertexArrayId = this.nextObjectId();
-    this.createObjectReference(vertexArrayId, 'createVertexArray', []);
+    const vertexArrayId = this.createObjectReference('createVertexArray', []);
     return new vGLVertexArrayObject(vertexArrayId);
   }
 
@@ -472,7 +616,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
   }
 
-  deleteProgram(program: vGLProgram | null): void {
+  deleteProgram(program: GLProgram | null): void {
     if (!program || program.isDeleted()) return;
     this[TransferrableKeys.mutated]('deleteProgram', [...arguments]);
     program.delete();
@@ -505,7 +649,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
   }
 
-  deleteShader(shader: vGLShader | null): void {
+  deleteShader(shader: GLShader | null): void {
     if (!shader || shader.isDeleted()) return;
     this[TransferrableKeys.mutated]('deleteShader', [...arguments]);
     shader.delete();
@@ -555,7 +699,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('depthRange', [...arguments]);
   }
 
-  detachShader(program: vGLProgram, shader: vGLShader): void {
+  detachShader(program: GLProgram, shader: GLShader): void {
     this[TransferrableKeys.mutated]('detachShader', [...arguments]);
     program.detachShader(shader, this);
   }
@@ -613,8 +757,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   fenceSync(condition: GLenum, flags: GLbitfield): vGLSync | null {
-    const syncId = this.nextObjectId();
-    this.createObjectReference(syncId, 'fenceSync', [...arguments]);
+    const syncId = this.createObjectReference('fenceSync', [...arguments]);
     return new vGLSync(syncId);
   }
 
@@ -646,33 +789,33 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('generateMipmap', [...arguments]);
   }
 
-  getActiveAttrib(program: vGLProgram, index: GLuint): vGLActiveInfo | null {
+  getActiveAttrib(program: GLProgram, index: GLuint): vGLActiveInfo | null {
     return program.getActiveAttrib(index);
   }
 
-  getActiveUniform(program: vGLProgram, index: GLuint): vGLActiveInfo | null {
+  getActiveUniform(program: GLProgram, index: GLuint): vGLActiveInfo | null {
     return program.getActiveUniform(index);
   }
 
-  getActiveUniformBlockName(program: vGLProgram, uniformBlockIndex: GLuint): string | null {
+  getActiveUniformBlockName(program: GLProgram, uniformBlockIndex: GLuint): string | null {
     throw new Error('NOT YET IMPLEMENTED');
   }
 
-  getActiveUniformBlockParameter(program: vGLProgram, uniformBlockIndex: GLuint, pname: GLenum): any {
+  getActiveUniformBlockParameter(program: GLProgram, uniformBlockIndex: GLuint, pname: GLenum): any {
     throw new Error('NOT YET IMPLEMENTED');
   }
 
-  getActiveUniforms(program: vGLProgram, uniformIndices: GLuint[], pname: GLenum): any;
-  getActiveUniforms(program: vGLProgram, uniformIndices: Iterable<GLuint>, pname: GLenum): any;
-  getActiveUniforms(program: vGLProgram, uniformIndices: GLuint[] | Iterable<GLuint>, pname: GLenum): any {
+  getActiveUniforms(program: GLProgram, uniformIndices: GLuint[], pname: GLenum): any;
+  getActiveUniforms(program: GLProgram, uniformIndices: Iterable<GLuint>, pname: GLenum): any;
+  getActiveUniforms(program: GLProgram, uniformIndices: GLuint[] | Iterable<GLuint>, pname: GLenum): any {
     throw new Error('NOT YET IMPLEMENTED');
   }
 
-  getAttachedShaders(program: vGLProgram): vGLShader[] | null {
+  getAttachedShaders(program: GLProgram): GLShader[] | null {
     return program.shaders;
   }
 
-  getAttribLocation(program: vGLProgram, name: string): number {
+  getAttribLocation(program: GLProgram, name: string): number {
     const attr = program.getAttribute(name);
     if (attr) {
       return attr.location;
@@ -686,15 +829,18 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       return null;
     }
 
-    switch (pname) { // see #bufferData
-      case this.BUFFER_SIZE: { //Returns a GLint indicating the size of the buffer in bytes.
+    switch (
+      pname // see #bufferData
+    ) {
+      case this.BUFFER_SIZE: {
+        //Returns a GLint indicating the size of the buffer in bytes.
         return buffer.size;
       }
       case this.BUFFER_USAGE: {
         return buffer.usage;
       }
       default:
-        throw `Unexpected target: ${pname}`;
+        throw new Error(`Unexpected target: ${pname}`);
     }
   }
 
@@ -714,8 +860,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     if (!this._extensions || !this._extensions.includes(name)) {
       return null;
     }
-    const id = this.nextObjectId();
-    this.createObjectReference(id, 'getExtension', [...arguments]);
+    const id = this.createObjectReference('getExtension', [...arguments]);
 
     // https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API#extensions
     switch (name) {
@@ -791,7 +936,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
   }
 
-  getFragDataLocation(program: vGLProgram, name: string): GLint {
+  getFragDataLocation(program: GLProgram, name: string): GLint {
     throw new Error('NOT IMPLEMENTED');
   }
 
@@ -860,40 +1005,39 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
         return this._getBindedBuffer(this.READ_FRAMEBUFFER);
       }
       default:
-        throw `Unexpected name: ${pname}`;
+        throw new Error(`Unexpected name: ${pname}`);
     }
   }
 
-  getProgramInfoLog(program: vGLProgram): string | null {
-    return "";
+  getProgramInfoLog(program: GLProgram): string | null {
+    return '';
   }
 
-  getProgramParameter(program: vGLProgram, pname: GLenum): any {
+  getProgramParameter(program: GLProgram, pname: GLenum): any {
     switch (pname) {
-      case this.ACTIVE_UNIFORMS:     // Returns a GLint indicating the number of active uniform variables to a program.
+      case this.ACTIVE_UNIFORMS: // Returns a GLint indicating the number of active uniform variables to a program.
         return program.activeUniforms;
-      case this.ACTIVE_ATTRIBUTES:     // Returns a GLint indicating the number of active attribute variables to a program.
+      case this.ACTIVE_ATTRIBUTES: // Returns a GLint indicating the number of active attribute variables to a program.
         return program.activeAttributes;
-      case this.DELETE_STATUS:    // Returns a GLboolean indicating whether or not the program is flagged for deletion.
+      case this.DELETE_STATUS: // Returns a GLboolean indicating whether or not the program is flagged for deletion.
         return program.isDeleted(); // See #deleteProgram
-      case this.ATTACHED_SHADERS:     // Returns a GLint indicating the number of attached shaders to a program.
+      case this.ATTACHED_SHADERS: // Returns a GLint indicating the number of attached shaders to a program.
         return program.shaders.length;
-      case this.TRANSFORM_FEEDBACK_BUFFER_MODE:     // Returns a GLenum indicating the buffer mode when transform feedback is active. May be gl.SEPARATE_ATTRIBS or gl.INTERLEAVED_ATTRIBS.
-      case this.TRANSFORM_FEEDBACK_VARYINGS:     // Returns a GLint indicating the number of varying variables to capture in transform feedback mode.
-      case this.ACTIVE_UNIFORM_BLOCKS:     // Returns a GLint indicating the number of uniform blocks containing active uniforms.
-        throw `NOT YET IMPLEMENTED: ${pname}`;
-      case this.VALIDATE_STATUS:     // Returns a GLboolean indicating whether or not the last validation operation was successful.
-      case this.LINK_STATUS:    // Returns a GLboolean indicating whether or not the last link operation was successful.
+      case this.TRANSFORM_FEEDBACK_BUFFER_MODE: // Returns a GLenum indicating the buffer mode when transform feedback is active. May be gl.SEPARATE_ATTRIBS or gl.INTERLEAVED_ATTRIBS.
+      case this.TRANSFORM_FEEDBACK_VARYINGS: // Returns a GLint indicating the number of varying variables to capture in transform feedback mode.
+      case this.ACTIVE_UNIFORM_BLOCKS: // Returns a GLint indicating the number of uniform blocks containing active uniforms.
+        throw new Error(`NOT YET IMPLEMENTED: ${pname}`);
+      case this.VALIDATE_STATUS: // Returns a GLboolean indicating whether or not the last validation operation was successful.
+      case this.LINK_STATUS: // Returns a GLboolean indicating whether or not the last link operation was successful.
         // optimistically return success; client will abort on an actual error. we assume an error-free async workflow
         return true;
       default:
-        throw `Unexpected getProgramParameter: ${pname}`;
+        throw new Error(`Unexpected getProgramParameter: ${pname}`);
     }
   }
 
   getQuery(target: GLenum, pname: GLenum): vGLQuery | null {
-    const queryId = this.nextObjectId();
-    this.createObjectReference(queryId, 'getQuery', [...arguments]);
+    const queryId = this.createObjectReference('getQuery', [...arguments]);
     return new vGLQuery(queryId);
   }
 
@@ -909,11 +1053,11 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     throw new Error('NOT IMPLEMENTED');
   }
 
-  getShaderInfoLog(shader: vGLShader): string | null {
-    return "";
+  getShaderInfoLog(shader: GLShader): string | null {
+    return '';
   }
 
-  getShaderParameter(shader: vGLShader, pname: GLenum): any {
+  getShaderParameter(shader: GLShader, pname: GLenum): any {
     switch (pname) {
       case this.SHADER_TYPE:
         return shader.type;
@@ -924,7 +1068,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
         return true;
       }
       default:
-        throw `Unexpected getShaderParameter: ${name}`;
+        throw new Error(`Unexpected getShaderParameter: ${pname}`);
     }
   }
 
@@ -934,7 +1078,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     throw new Error('NOT YET IMPLEMENTED');
   }
 
-  getShaderSource(shader: vGLShader): string | null {
+  getShaderSource(shader: GLShader): string | null {
     return shader.source;
   }
 
@@ -950,35 +1094,34 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     throw new Error('NOT IMPLEMENTED');
   }
 
-  getTransformFeedbackVarying(program: vGLProgram, index: GLuint): vGLActiveInfo | null {
+  getTransformFeedbackVarying(program: GLProgram, index: GLuint): vGLActiveInfo | null {
     throw new Error('NOT YET IMPLEMENTED');
   }
 
-  getUniform(program: vGLProgram, location: vGLLocation): any {
+  getUniform(program: GLProgram, location: vGLLocation): any {
     // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/getUniform
     throw new Error('NOT YET IMPLEMENTED');
   }
 
-  getUniformBlockIndex(program: vGLProgram, uniformBlockName: string): GLuint {
+  getUniformBlockIndex(program: GLProgram, uniformBlockName: string): GLuint {
     // https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/getUniformBlockIndex
     throw new Error('NOT YET IMPLEMENTED');
   }
 
-  getUniformIndices(program: vGLProgram, uniformNames: string[]): GLuint[] | null;
-  getUniformIndices(program: vGLProgram, uniformNames: Iterable<string>): Iterable<GLuint> | null;
-  getUniformIndices(program: vGLProgram, uniformNames: string[] | Iterable<string>): GLuint[] | null | Iterable<GLuint> {
+  getUniformIndices(program: GLProgram, uniformNames: string[]): GLuint[] | null;
+  getUniformIndices(program: GLProgram, uniformNames: Iterable<string>): Iterable<GLuint> | null;
+  getUniformIndices(program: GLProgram, uniformNames: string[] | Iterable<string>): GLuint[] | null | Iterable<GLuint> {
     // https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/getUniformIndices
     throw new Error('NOT YET IMPLEMENTED');
   }
 
-  getUniformLocation(program: vGLProgram, name: string): vGLLocation | null {
+  getUniformLocation(program: GLProgram, name: string): vGLLocation | null {
     const uniform = program.getUniform(name);
     if (uniform) {
       if (uniform.uniformLocations) {
         return uniform.uniformLocations;
       } else {
-        const uniformLocationId = this.nextObjectId();
-        this.createObjectReference(uniformLocationId, 'getUniformLocation', [...arguments]);
+        const uniformLocationId = this.createObjectReference('getUniformLocation', [...arguments]);
         const uniformLocation = new vGLLocation(uniformLocationId, name);
         uniform.uniformLocations = uniformLocation;
         return uniformLocation;
@@ -1027,8 +1170,8 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     return framebuffer != null && framebuffer instanceof vGLFramebuffer && !framebuffer.isDeleted();
   }
 
-  isProgram(program: vGLProgram | null): GLboolean {
-    return program != null && program instanceof vGLProgram && !program.isDeleted();
+  isProgram(program: GLProgram | null): GLboolean {
+    return program != null && program instanceof GLProgram && !program.isDeleted();
   }
 
   isQuery(query: vGLQuery | null): GLboolean {
@@ -1043,8 +1186,8 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     return sampler != null && sampler instanceof vGLSampler && !sampler.isDeleted();
   }
 
-  isShader(shader: vGLShader | null): GLboolean {
-    return shader != null && shader instanceof vGLShader && !shader.isDeleted();
+  isShader(shader: GLShader | null): GLboolean {
+    return shader != null && shader instanceof GLShader && !shader.isDeleted();
   }
 
   isSync(sync: vGLSync | null): GLboolean {
@@ -1067,7 +1210,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('lineWidth', [...arguments]);
   }
 
-  linkProgram(program: vGLProgram): void {
+  linkProgram(program: GLProgram): void {
     this[TransferrableKeys.mutated]('linkProgram', [...arguments]);
     program.link(this);
   }
@@ -1091,7 +1234,16 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   readPixels(x: GLint, y: GLint, width: GLsizei, height: GLsizei, format: GLenum, type: GLenum, dstData: ArrayBufferView | null): void;
   readPixels(x: GLint, y: GLint, width: GLsizei, height: GLsizei, format: GLenum, type: GLenum, offset: GLintptr): void;
   readPixels(x: GLint, y: GLint, width: GLsizei, height: GLsizei, format: GLenum, type: GLenum, dstData: ArrayBufferView, dstOffset: GLuint): void;
-  readPixels(x: GLint, y: GLint, width: GLsizei, height: GLsizei, format: GLenum, type: GLenum, dstData: ArrayBufferView | null | GLintptr, dstOffset?: GLuint): void {
+  readPixels(
+    x: GLint,
+    y: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    format: GLenum,
+    type: GLenum,
+    dstData: ArrayBufferView | null | GLintptr,
+    dstOffset?: GLuint,
+  ): void {
     throw new Error('NOT IMPLEMENTED');
   }
 
@@ -1123,8 +1275,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('scissor', [...arguments]);
   }
 
-  shaderSource(shader: vGLShader, source: string): void {
-
+  shaderSource(shader: GLShader, source: string): void {
     const shaderSource = shader.compile(this, source);
 
     this[TransferrableKeys.mutated]('shaderSource', [shader, shaderSource]);
@@ -1154,20 +1305,129 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('stencilOpSeparate', [...arguments]);
   }
 
-  texImage2D(target: GLenum, level: GLint, internalformat: GLint, width: GLsizei, height: GLsizei, border: GLint, format: GLenum, type: GLenum, pixels: ArrayBufferView | null): void;
+  texImage2D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    border: GLint,
+    format: GLenum,
+    type: GLenum,
+    pixels: ArrayBufferView | null,
+  ): void;
   texImage2D(target: GLenum, level: GLint, internalformat: GLint, format: GLenum, type: GLenum, source: TexImageSource): void;
-  texImage2D(target: GLenum, level: GLint, internalformat: GLint, width: GLsizei, height: GLsizei, border: GLint, format: GLenum, type: GLenum, pboOffset: GLintptr): void;
-  texImage2D(target: GLenum, level: GLint, internalformat: GLint, width: GLsizei, height: GLsizei, border: GLint, format: GLenum, type: GLenum, source: TexImageSource): void;
-  texImage2D(target: GLenum, level: GLint, internalformat: GLint, width: GLsizei, height: GLsizei, border: GLint, format: GLenum, type: GLenum, srcData: ArrayBufferView, srcOffset: GLuint): void;
-  texImage2D(target: GLenum, level: GLint, internalformat: GLint, width: GLsizei | GLenum, height: GLsizei | GLenum, border: GLint | TexImageSource, format?: GLenum, type?: GLenum, pixels?: ArrayBufferView | null | GLintptr | TexImageSource, srcOffset?: GLuint): void {
+  texImage2D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    border: GLint,
+    format: GLenum,
+    type: GLenum,
+    pboOffset: GLintptr,
+  ): void;
+  texImage2D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    border: GLint,
+    format: GLenum,
+    type: GLenum,
+    source: TexImageSource,
+  ): void;
+  texImage2D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    border: GLint,
+    format: GLenum,
+    type: GLenum,
+    srcData: ArrayBufferView,
+    srcOffset: GLuint,
+  ): void;
+  texImage2D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLint,
+    width: GLsizei | GLenum,
+    height: GLsizei | GLenum,
+    border: GLint | TexImageSource,
+    format?: GLenum,
+    type?: GLenum,
+    pixels?: ArrayBufferView | null | GLintptr | TexImageSource,
+    srcOffset?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('texImage2D', [...arguments]);
   }
 
-  texImage3D(target: GLenum, level: GLint, internalformat: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, border: GLint, format: GLenum, type: GLenum, pboOffset: GLintptr): void;
-  texImage3D(target: GLenum, level: GLint, internalformat: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, border: GLint, format: GLenum, type: GLenum, source: TexImageSource): void;
-  texImage3D(target: GLenum, level: GLint, internalformat: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, border: GLint, format: GLenum, type: GLenum, srcData: ArrayBufferView | null): void;
-  texImage3D(target: GLenum, level: GLint, internalformat: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, border: GLint, format: GLenum, type: GLenum, srcData: ArrayBufferView, srcOffset: GLuint): void;
-  texImage3D(target: GLenum, level: GLint, internalformat: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, border: GLint, format: GLenum, type: GLenum, pboOffset: GLintptr | TexImageSource | ArrayBufferView | null, srcOffset?: GLuint): void {
+  texImage3D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    border: GLint,
+    format: GLenum,
+    type: GLenum,
+    pboOffset: GLintptr,
+  ): void;
+  texImage3D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    border: GLint,
+    format: GLenum,
+    type: GLenum,
+    source: TexImageSource,
+  ): void;
+  texImage3D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    border: GLint,
+    format: GLenum,
+    type: GLenum,
+    srcData: ArrayBufferView | null,
+  ): void;
+  texImage3D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    border: GLint,
+    format: GLenum,
+    type: GLenum,
+    srcData: ArrayBufferView,
+    srcOffset: GLuint,
+  ): void;
+  texImage3D(
+    target: GLenum,
+    level: GLint,
+    internalformat: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    border: GLint,
+    format: GLenum,
+    type: GLenum,
+    pboOffset: GLintptr | TexImageSource | ArrayBufferView | null,
+    srcOffset?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('texImage3D', [...arguments]);
   }
 
@@ -1187,25 +1447,127 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('texStorage3D', [...arguments]);
   }
 
-  texSubImage2D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, width: GLsizei, height: GLsizei, format: GLenum, type: GLenum, pixels: ArrayBufferView | null): void;
+  texSubImage2D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    format: GLenum,
+    type: GLenum,
+    pixels: ArrayBufferView | null,
+  ): void;
   texSubImage2D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, format: GLenum, type: GLenum, source: TexImageSource): void;
-  texSubImage2D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, width: GLsizei, height: GLsizei, format: GLenum, type: GLenum, pboOffset: GLintptr): void;
-  texSubImage2D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, width: GLsizei, height: GLsizei, format: GLenum, type: GLenum, source: TexImageSource): void;
-  texSubImage2D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, width: GLsizei, height: GLsizei, format: GLenum, type: GLenum, srcData: ArrayBufferView, srcOffset: GLuint): void;
-  texSubImage2D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, width: GLsizei | GLenum, height: GLsizei | GLenum, format: GLenum | TexImageSource, type?: GLenum, pixels?: ArrayBufferView | null | GLintptr | TexImageSource, srcOffset?: GLuint): void {
+  texSubImage2D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    format: GLenum,
+    type: GLenum,
+    pboOffset: GLintptr,
+  ): void;
+  texSubImage2D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    format: GLenum,
+    type: GLenum,
+    source: TexImageSource,
+  ): void;
+  texSubImage2D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    format: GLenum,
+    type: GLenum,
+    srcData: ArrayBufferView,
+    srcOffset: GLuint,
+  ): void;
+  texSubImage2D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    width: GLsizei | GLenum,
+    height: GLsizei | GLenum,
+    format: GLenum | TexImageSource,
+    type?: GLenum,
+    pixels?: ArrayBufferView | null | GLintptr | TexImageSource,
+    srcOffset?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('texSubImage2D', [...arguments]);
   }
 
-  texSubImage3D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, zoffset: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, format: GLenum, type: GLenum, pboOffset: GLintptr): void;
-  texSubImage3D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, zoffset: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, format: GLenum, type: GLenum, source: TexImageSource): void;
-  texSubImage3D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, zoffset: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, format: GLenum, type: GLenum, srcData: ArrayBufferView | null, srcOffset?: GLuint): void;
-  texSubImage3D(target: GLenum, level: GLint, xoffset: GLint, yoffset: GLint, zoffset: GLint, width: GLsizei, height: GLsizei, depth: GLsizei, format: GLenum, type: GLenum, pboOffset: GLintptr | TexImageSource | ArrayBufferView | null, srcOffset?: GLuint): void {
+  texSubImage3D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    zoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    format: GLenum,
+    type: GLenum,
+    pboOffset: GLintptr,
+  ): void;
+  texSubImage3D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    zoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    format: GLenum,
+    type: GLenum,
+    source: TexImageSource,
+  ): void;
+  texSubImage3D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    zoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    format: GLenum,
+    type: GLenum,
+    srcData: ArrayBufferView | null,
+    srcOffset?: GLuint,
+  ): void;
+  texSubImage3D(
+    target: GLenum,
+    level: GLint,
+    xoffset: GLint,
+    yoffset: GLint,
+    zoffset: GLint,
+    width: GLsizei,
+    height: GLsizei,
+    depth: GLsizei,
+    format: GLenum,
+    type: GLenum,
+    pboOffset: GLintptr | TexImageSource | ArrayBufferView | null,
+    srcOffset?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('texSubImage3D', [...arguments]);
   }
 
-  transformFeedbackVaryings(program: vGLProgram, varyings: string[], bufferMode: GLenum): void;
-  transformFeedbackVaryings(program: vGLProgram, varyings: Iterable<string>, bufferMode: GLenum): void;
-  transformFeedbackVaryings(program: vGLProgram, varyings: string[] | Iterable<string>, bufferMode: GLenum): void {
+  transformFeedbackVaryings(program: GLProgram, varyings: string[], bufferMode: GLenum): void;
+  transformFeedbackVaryings(program: GLProgram, varyings: Iterable<string>, bufferMode: GLenum): void;
+  transformFeedbackVaryings(program: GLProgram, varyings: string[] | Iterable<string>, bufferMode: GLenum): void {
     this[TransferrableKeys.mutated]('transformFeedbackVaryings', [...arguments]);
   }
 
@@ -1329,71 +1691,125 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('uniform4uiv', [...arguments]);
   }
 
-  uniformBlockBinding(program: vGLProgram, uniformBlockIndex: GLuint, uniformBlockBinding: GLuint): void {
+  uniformBlockBinding(program: GLProgram, uniformBlockIndex: GLuint, uniformBlockBinding: GLuint): void {
     this[TransferrableKeys.mutated]('uniformBlockBinding', [...arguments]);
   }
 
   uniformMatrix2fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List, srcOffset?: GLuint, srcLength?: GLuint): void;
   uniformMatrix2fv(location: vGLLocation | null, transpose: GLboolean, data: Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void;
-  uniformMatrix2fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List | Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void {
+  uniformMatrix2fv(
+    location: vGLLocation | null,
+    transpose: GLboolean,
+    data: Float32List | Iterable<GLfloat>,
+    srcOffset?: GLuint,
+    srcLength?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('uniformMatrix2fv', [...arguments]);
   }
 
   uniformMatrix2x3fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List, srcOffset?: GLuint, srcLength?: GLuint): void;
   uniformMatrix2x3fv(location: vGLLocation | null, transpose: GLboolean, data: Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void;
-  uniformMatrix2x3fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List | Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void {
+  uniformMatrix2x3fv(
+    location: vGLLocation | null,
+    transpose: GLboolean,
+    data: Float32List | Iterable<GLfloat>,
+    srcOffset?: GLuint,
+    srcLength?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('uniformMatrix2x3fv', [...arguments]);
   }
 
   uniformMatrix2x4fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List, srcOffset?: GLuint, srcLength?: GLuint): void;
   uniformMatrix2x4fv(location: vGLLocation | null, transpose: GLboolean, data: Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void;
-  uniformMatrix2x4fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List | Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void {
+  uniformMatrix2x4fv(
+    location: vGLLocation | null,
+    transpose: GLboolean,
+    data: Float32List | Iterable<GLfloat>,
+    srcOffset?: GLuint,
+    srcLength?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('uniformMatrix2x4fv', [...arguments]);
   }
 
   uniformMatrix3fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List, srcOffset?: GLuint, srcLength?: GLuint): void;
   uniformMatrix3fv(location: vGLLocation | null, transpose: GLboolean, data: Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void;
-  uniformMatrix3fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List | Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void {
+  uniformMatrix3fv(
+    location: vGLLocation | null,
+    transpose: GLboolean,
+    data: Float32List | Iterable<GLfloat>,
+    srcOffset?: GLuint,
+    srcLength?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('uniformMatrix3fv', [...arguments]);
   }
 
   uniformMatrix3x2fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List, srcOffset?: GLuint, srcLength?: GLuint): void;
   uniformMatrix3x2fv(location: vGLLocation | null, transpose: GLboolean, data: Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void;
-  uniformMatrix3x2fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List | Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void {
+  uniformMatrix3x2fv(
+    location: vGLLocation | null,
+    transpose: GLboolean,
+    data: Float32List | Iterable<GLfloat>,
+    srcOffset?: GLuint,
+    srcLength?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('uniformMatrix3x2fv', [...arguments]);
   }
 
   uniformMatrix3x4fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List, srcOffset?: GLuint, srcLength?: GLuint): void;
   uniformMatrix3x4fv(location: vGLLocation | null, transpose: GLboolean, data: Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void;
-  uniformMatrix3x4fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List | Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void {
+  uniformMatrix3x4fv(
+    location: vGLLocation | null,
+    transpose: GLboolean,
+    data: Float32List | Iterable<GLfloat>,
+    srcOffset?: GLuint,
+    srcLength?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('uniformMatrix3x4fv', [...arguments]);
   }
 
   uniformMatrix4fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List, srcOffset?: GLuint, srcLength?: GLuint): void;
   uniformMatrix4fv(location: vGLLocation | null, transpose: GLboolean, data: Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void;
-  uniformMatrix4fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List | Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void {
+  uniformMatrix4fv(
+    location: vGLLocation | null,
+    transpose: GLboolean,
+    data: Float32List | Iterable<GLfloat>,
+    srcOffset?: GLuint,
+    srcLength?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('uniformMatrix4fv', [...arguments]);
   }
 
   uniformMatrix4x2fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List, srcOffset?: GLuint, srcLength?: GLuint): void;
   uniformMatrix4x2fv(location: vGLLocation | null, transpose: GLboolean, data: Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void;
-  uniformMatrix4x2fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List | Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void {
+  uniformMatrix4x2fv(
+    location: vGLLocation | null,
+    transpose: GLboolean,
+    data: Float32List | Iterable<GLfloat>,
+    srcOffset?: GLuint,
+    srcLength?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('uniformMatrix4x2fv', [...arguments]);
   }
 
   uniformMatrix4x3fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List, srcOffset?: GLuint, srcLength?: GLuint): void;
   uniformMatrix4x3fv(location: vGLLocation | null, transpose: GLboolean, data: Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void;
-  uniformMatrix4x3fv(location: vGLLocation | null, transpose: GLboolean, data: Float32List | Iterable<GLfloat>, srcOffset?: GLuint, srcLength?: GLuint): void {
+  uniformMatrix4x3fv(
+    location: vGLLocation | null,
+    transpose: GLboolean,
+    data: Float32List | Iterable<GLfloat>,
+    srcOffset?: GLuint,
+    srcLength?: GLuint,
+  ): void {
     this[TransferrableKeys.mutated]('uniformMatrix4x3fv', [...arguments]);
   }
 
-  useProgram(program: vGLProgram | null): void {
+  useProgram(program: GLProgram | null): void {
     if (!program || program.isDeleted()) return;
     this._bindings.program = program;
     this[TransferrableKeys.mutated]('useProgram', [...arguments]);
   }
 
-  validateProgram(program: vGLProgram): void {
+  validateProgram(program: GLProgram): void {
     this[TransferrableKeys.mutated]('validateProgram', [...arguments]);
   }
 
@@ -1477,33 +1893,12 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('waitSync', [...arguments]);
   }
 
-  nextObjectId() {
-    return WebGLRenderingContextPolyfill.nextObjectId();
-  }
-
-  static nextObjectId() {
-    return WebGLRenderingContextPolyfill._objectIndex++;
-  }
-
   public [TransferrableKeys.serializeAsTransferrableObject](): number[] {
     return this._serializedAsTransferrableObject;
   }
 
-  /**
-   * Creates object in the main thread, and associates it with the id provided.
-   * @param objectId ID to associate the created object with.
-   * @param creationMethod Method to use for object creation.
-   * @param creationArgs Arguments to pass into the creation method.
-   */
-  private createObjectReference(objectId: number, creationMethod: string, creationArgs: any[]) {
-    transfer(this.canvas.ownerDocument as Document, [
-      TransferrableMutationType.OBJECT_CREATION,
-      store(creationMethod),
-      objectId,
-      creationArgs.length,
-      ...this[TransferrableKeys.serializeAsTransferrableObject](),
-      ...serializeTransferrableObject(creationArgs),
-    ]);
+  private createObjectReference(creationMethod: string, creationArgs: any[]) {
+    return createObjectReference(this.canvas.ownerDocument as Document, this, creationMethod, creationArgs);
   }
 
   private [TransferrableKeys.mutated](fnName: string, args: any[]) {
@@ -1551,7 +1946,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
         break;
       }
       default:
-        throw `Unexpected target: ${target}`;
+        throw new Error(`Unexpected target: ${target}`);
     }
   }
 
@@ -1582,7 +1977,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       case this.READ_FRAMEBUFFER:
         return this._buffers.readFramebuffer;
       default:
-        throw `Unexpected target: ${target}`;
+        throw new Error(`Unexpected target: ${target}`);
     }
   }
 }

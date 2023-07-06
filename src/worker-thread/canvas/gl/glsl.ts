@@ -1,12 +1,47 @@
 const QUALITY = ['mediump', 'highp', 'lowp'];
 
 const TYPES = [
-  'bool', 'int', 'uint', 'ivec2', 'ivec3', 'ivec4', 'bvec2', 'bvec3', 'bvec4',
-  'vec2', 'vec3', 'vec4', 'mat2', 'mat3', 'mat4', 'float', 'sampler2D', 'samplerCube',
-  'uvec2', 'uvec3', 'uvec4', 'mat2x3', 'mat2x4', 'mat3x2', 'mat3x4', 'mat4x2', 'mat4x3',
-  'sampler2DShadow', 'sampler2DArray', 'sampler2DArrayShadow', 'samplerCubeShadow', 'isampler2D',
-  'isampler3D', 'isamplerCube', 'isampler2DArray', 'usampler2D', 'usampler3D', 'usamplerCube',
-  'usampler2DArray', 'sampler3D'];
+  'bool',
+  'int',
+  'uint',
+  'ivec2',
+  'ivec3',
+  'ivec4',
+  'bvec2',
+  'bvec3',
+  'bvec4',
+  'vec2',
+  'vec3',
+  'vec4',
+  'mat2',
+  'mat3',
+  'mat4',
+  'float',
+  'sampler2D',
+  'samplerCube',
+  'uvec2',
+  'uvec3',
+  'uvec4',
+  'mat2x3',
+  'mat2x4',
+  'mat3x2',
+  'mat3x4',
+  'mat4x2',
+  'mat4x3',
+  'sampler2DShadow',
+  'sampler2DArray',
+  'sampler2DArrayShadow',
+  'samplerCubeShadow',
+  'isampler2D',
+  'isampler3D',
+  'isamplerCube',
+  'isampler2DArray',
+  'usampler2D',
+  'usampler3D',
+  'usamplerCube',
+  'usampler2DArray',
+  'sampler3D',
+];
 
 const OPERATOR_AND = '&&';
 const OPERATOR_OR = '||';
@@ -64,7 +99,7 @@ function readConditionResult(reader: StreamReader, defines: DefinesType) {
     } else if (operator === OPERATOR_OR) {
       result = result || defineResult;
     } else {
-      throw `Unexpected operator: ${operator}`;
+      throw new Error(`Unexpected operator: ${operator}`);
     }
 
     operator = reader.next();
@@ -138,26 +173,25 @@ export function parseGLSL(source: string) {
             if (TYPES.indexOf(quality) >= 0) {
               type = quality;
               quality = 'lowp';
-            } else
-              throw `Unexpected quality: ${quality}`;
+            } else throw new Error(`Unexpected quality: ${quality}`);
           }
 
           if (type.length == 0) {
             type = reader.next();
             if (TYPES.indexOf(type) === -1) {
-              throw `Unexpected type: ${type}`;
+              throw new Error(`Unexpected type: ${type}`);
             }
           }
 
           const name = reader.next().replace(';', '');
           if (!name) {
-            throw `Unexpected name: ${name}`;
+            throw new Error(`Unexpected name: ${name}`);
           }
           if (attributes[name]) {
-            throw `Attribute already exists: ${name}`;
+            throw new Error(`Attribute already exists: ${name}`);
           }
           const index = Object.keys(attributes).length;
-          attributes[name] = {quality, type, index};
+          attributes[name] = { quality, type, index };
         }
         break;
       }
@@ -170,36 +204,35 @@ export function parseGLSL(source: string) {
             if (TYPES.indexOf(quality) >= 0) {
               type = quality;
               quality = 'lowp';
-            } else
-              throw `Unexpected quality: ${quality}`;
+            } else throw new Error(`Unexpected quality: ${quality}`);
           }
 
           if (type.length == 0) {
             type = reader.next();
             if (TYPES.indexOf(type) === -1) {
-              throw `Unexpected type: ${type}`;
+              throw new Error(`Unexpected type: ${type}`);
             }
           }
 
           const name = reader.next().replace(';', '');
           if (!name) {
-            throw `Unexpected name: ${name}`;
+            throw new Error(`Unexpected name: ${name}`);
           }
           if (uniforms[name]) {
-            throw `Uniform already exists: ${name}`;
+            throw new Error(`Uniform already exists: ${name}`);
           }
           const index = Object.keys(uniforms).length;
-          uniforms[name] = {quality, type, index};
+          uniforms[name] = { quality, type, index };
         }
         break;
       }
     }
 
     if (!stack.length) {
-      throw 'Incorrect condition parsing';
+      throw new Error('Incorrect condition parsing');
     }
 
     enabled = stack.filter((value) => value).length === stack.length;
   }
-  return {defines, uniforms, attributes};
+  return { defines, uniforms, attributes };
 }

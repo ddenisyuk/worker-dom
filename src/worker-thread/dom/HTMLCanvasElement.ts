@@ -2,21 +2,13 @@ import { HTMLElement } from './HTMLElement';
 import { registerSubclass } from './Element';
 import { reflectProperties } from './enhanceElement';
 import { CanvasRenderingContext2DShim } from '../canvas/CanvasRenderingContext2D';
-import { WebGLRenderingContextPolyfill } from "../canvas/WebGLRenderingContextPolyfill";
-import { transfer } from "../MutationTransfer";
-import { Document } from "./Document";
-import { TransferrableMutationType } from "../../transfer/TransferrableMutation";
-import { store } from "../strings";
-import { TransferrableKeys } from "../../transfer/TransferrableKeys";
-import { serializeTransferrableObject } from "../serializeTransferrableObject";
+import { WebGLRenderingContextPolyfill } from '../canvas/WebGLRenderingContextPolyfill';
+import { Document } from './Document';
+import { createObjectReference } from '../object-reference';
 
 export class HTMLCanvasElement extends HTMLElement {
   private context2d: CanvasRenderingContext2DShim<HTMLCanvasElement>;
   private contextWebGL: WebGLRenderingContextPolyfill;
-
-  private _clientWidth: number = 0;
-  private _clientHeight: number = 0;
-  private _boundingClientRect: DOMRect;
 
   getContext(contextType: string, contextAttributes?: {}): CanvasRenderingContext2DShim<HTMLCanvasElement> | WebGLRenderingContextPolyfill {
     switch (contextType.toLowerCase()) {
@@ -30,8 +22,7 @@ export class HTMLCanvasElement extends HTMLElement {
       case 'experimental-webgl':
       case 'webgl2':
         if (!this.contextWebGL) {
-          const id = WebGLRenderingContextPolyfill.nextObjectId();
-          this.createObjectReference(id, "getContext", [...arguments]);
+          const id = createObjectReference(this.ownerDocument as Document, this, 'getContext', [...arguments]);
           this.contextWebGL = new WebGLRenderingContextPolyfill(id, this, contextAttributes);
         }
         return this.contextWebGL;
@@ -39,38 +30,8 @@ export class HTMLCanvasElement extends HTMLElement {
         throw new Error(`Context type "${contextType}" not supported.`);
     }
   }
-
-  getBoundingClientRect(): DOMRect {
-    return this._boundingClientRect || new DOMRect(0,0, this.width, this.height);
-  }
-
-  get clientWidth() {
-    return Math.max(this.width, this._clientWidth);
-  }
-
-  set clientWidth(clientWidth: number) {
-    this._clientWidth = clientWidth;
-  }
-
-  get clientHeight() {
-    return Math.max(this.height, this._clientHeight);
-  }
-
-  set clientHeight(clientHeight: number) {
-    this._clientHeight = clientHeight;
-  }
-
-  private createObjectReference(objectId: number, creationMethod: string, creationArgs: any[]) {
-    transfer(this.ownerDocument as Document, [
-      TransferrableMutationType.OBJECT_CREATION,
-      store(creationMethod),
-      objectId,
-      creationArgs.length,
-      ...this[TransferrableKeys.serializeAsTransferrableObject](),
-      ...serializeTransferrableObject(creationArgs),
-    ]);
-  }
 }
+
 registerSubclass('canvas', HTMLCanvasElement);
 
 // Reflected Properties

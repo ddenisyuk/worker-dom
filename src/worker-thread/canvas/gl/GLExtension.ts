@@ -1,16 +1,16 @@
-import {TransferrableGLObject, vGLQuery} from "./TransferrableGLObjectTypes";
-import {WebGLRenderingContextPolyfill} from "../WebGLRenderingContextPolyfill";
-import {TransferrableKeys} from "../../../transfer/TransferrableKeys";
-import {transfer} from "../../MutationTransfer";
-import {Document} from "../../dom/Document";
-import {TransferrableMutationType} from "../../../transfer/TransferrableMutation";
-import {store} from "../../strings";
-import {serializeTransferrableObject} from "../../serializeTransferrableObject";
-import {GLConstants} from "./GLConstants";
-import {vGLShader} from "./vGLShader";
+import { TransferrableGLObject, vGLQuery } from './TransferrableGLObjectTypes';
+import { WebGLRenderingContextPolyfill } from '../WebGLRenderingContextPolyfill';
+import { TransferrableKeys } from '../../../transfer/TransferrableKeys';
+import { transfer } from '../../MutationTransfer';
+import { Document } from '../../dom/Document';
+import { TransferrableMutationType } from '../../../transfer/TransferrableMutation';
+import { store } from '../../strings';
+import { serializeTransferrableObject } from '../../serializeTransferrableObject';
+import { GLConstants } from './GLConstants';
+import { GLShader } from './GLShader';
+import { createObjectReference } from '../../object-reference';
 
 export abstract class TransferrableGLExtension extends TransferrableGLObject {
-
   protected readonly context: WebGLRenderingContextPolyfill;
 
   public constructor(id: number, context: WebGLRenderingContextPolyfill) {
@@ -28,75 +28,49 @@ export abstract class TransferrableGLExtension extends TransferrableGLObject {
     ]);
   }
 
-  protected createObjectReference(objectId: number, creationMethod: string, creationArgs: any[]) {
-    transfer(this.context.canvas.ownerDocument as Document, [
-      TransferrableMutationType.OBJECT_CREATION,
-      store(creationMethod),
-      objectId,
-      creationArgs.length,
-      ...this[TransferrableKeys.serializeAsTransferrableObject](),
-      ...serializeTransferrableObject(creationArgs),
-    ]);
+  protected createObjectReference(creationMethod: string, creationArgs: any[]): number {
+    return createObjectReference(this.context.canvas.ownerDocument as Document, this, creationMethod, creationArgs);
   }
-
 }
 
-export class GenericExtension extends TransferrableGLObject {
-}
+export class GenericExtension extends TransferrableGLObject {}
 
-export class EXTBlendMinmax extends GLConstants implements EXT_blend_minmax {
-}
+export class EXTBlendMinmax extends GLConstants implements EXT_blend_minmax {}
 
-export class EXTSRGB extends GLConstants implements EXT_sRGB {
-}
+export class EXTSRGB extends GLConstants implements EXT_sRGB {}
 
-export class EXTTextureFilterAnisotropic extends GLConstants implements EXT_texture_filter_anisotropic {
-}
+export class EXTTextureFilterAnisotropic extends GLConstants implements EXT_texture_filter_anisotropic {}
 
-export class KHRParallelShaderCompile extends GLConstants implements KHR_parallel_shader_compile {
-}
+export class KHRParallelShaderCompile extends GLConstants implements KHR_parallel_shader_compile {}
 
-export class OESStandardDerivatives extends GLConstants implements OES_standard_derivatives {
-}
+export class OESStandardDerivatives extends GLConstants implements OES_standard_derivatives {}
 
-export class OESTextureHalfFloat extends GLConstants implements OES_texture_half_float {
-}
+export class OESTextureHalfFloat extends GLConstants implements OES_texture_half_float {}
 
-export class EXTColorBufferHalfFloat extends GLConstants implements EXT_color_buffer_half_float {
-}
+export class EXTColorBufferHalfFloat extends GLConstants implements EXT_color_buffer_half_float {}
 
-export class EXTTextureCompressionRgtc extends GLConstants implements EXT_texture_compression_rgtc {
-}
+export class EXTTextureCompressionRgtc extends GLConstants implements EXT_texture_compression_rgtc {}
 
-export class WEBGLColorBufferFloat extends GLConstants implements WEBGL_color_buffer_float {
-}
+export class WEBGLColorBufferFloat extends GLConstants implements WEBGL_color_buffer_float {}
 
-export class WEBGLCompressedTextureEtc extends GLConstants implements WEBGL_compressed_texture_etc {
-}
+export class WEBGLCompressedTextureEtc extends GLConstants implements WEBGL_compressed_texture_etc {}
 
-export class WEBGLCompressedTextureEtc1 extends GLConstants implements WEBGL_compressed_texture_etc1 {
-}
+export class WEBGLCompressedTextureEtc1 extends GLConstants implements WEBGL_compressed_texture_etc1 {}
 
-export class WEBGLCompressedTexturePvrtc extends GLConstants implements WEBGL_compressed_texture_pvrtc {
-}
+export class WEBGLCompressedTexturePvrtc extends GLConstants implements WEBGL_compressed_texture_pvrtc {}
 
-export class WEBGLCompressedTextureS3tc extends GLConstants implements WEBGL_compressed_texture_s3tc {
-}
+export class WEBGLCompressedTextureS3tc extends GLConstants implements WEBGL_compressed_texture_s3tc {}
 
-export class WEBGLCompressedTextureS3tcSrgb extends GLConstants implements WEBGL_compressed_texture_s3tc_srgb {
-}
+export class WEBGLCompressedTextureS3tcSrgb extends GLConstants implements WEBGL_compressed_texture_s3tc_srgb {}
 
-export class WEBGLDebugRendererInfo extends GLConstants implements WEBGL_debug_renderer_info {
-}
+export class WEBGLDebugRendererInfo extends GLConstants implements WEBGL_debug_renderer_info {}
 
-export class WEBGLDepthTexture extends GLConstants implements WEBGL_depth_texture {
-}
+export class WEBGLDepthTexture extends GLConstants implements WEBGL_depth_texture {}
 
-export class GLVertexArrayObjectOES extends TransferrableGLObject implements WebGLVertexArrayObjectOES {
-}
+export class GLVertexArrayObjectOES extends TransferrableGLObject implements WebGLVertexArrayObjectOES {}
 
 export class WEBGLDebugShaders implements WEBGL_debug_shaders {
-  getTranslatedShaderSource(shader: vGLShader): string {
+  getTranslatedShaderSource(shader: GLShader): string {
     return shader.compiled && shader.source != null ? shader.source : '';
   }
 }
@@ -107,11 +81,9 @@ export class WEBGLCompressedTextureAstc extends GLConstants implements WEBGL_com
   }
 }
 
-export class EXTTextureNorm16 extends GLConstants /*implements EXT_texture_norm16 */ {
-}
+export class EXTTextureNorm16 extends GLConstants /*implements EXT_texture_norm16 */ {}
 
-export class EXTTextureCompressionBptc extends GLConstants /* implements EXT_texture_compression_bptc */ {
-}
+export class EXTTextureCompressionBptc extends GLConstants /* implements EXT_texture_compression_bptc */ {}
 
 export class WEBGLDrawBuffers extends TransferrableGLExtension implements WEBGL_draw_buffers {
   readonly COLOR_ATTACHMENT0_WEBGL: GLenum;
@@ -195,7 +167,6 @@ export class WEBGLDrawBuffers extends TransferrableGLExtension implements WEBGL_
 }
 
 export class ANGLEInstancedArrays extends TransferrableGLExtension implements ANGLE_instanced_arrays {
-
   public readonly VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE: GLenum;
 
   public constructor(id: number, context: WebGLRenderingContextPolyfill) {
@@ -230,7 +201,14 @@ export class OVRMultiview2 extends TransferrableGLExtension implements OVR_multi
     this.FRAMEBUFFER_INCOMPLETE_VIEW_TARGETS_OVR = context.FRAMEBUFFER_INCOMPLETE_VIEW_TARGETS_OVR;
   }
 
-  framebufferTextureMultiviewOVR(target: GLenum, attachment: GLenum, texture: WebGLTexture | null, level: GLint, baseViewIndex: GLint, numViews: GLsizei): void {
+  framebufferTextureMultiviewOVR(
+    target: GLenum,
+    attachment: GLenum,
+    texture: WebGLTexture | null,
+    level: GLint,
+    baseViewIndex: GLint,
+    numViews: GLsizei,
+  ): void {
     this[TransferrableKeys.mutated]('framebufferTextureMultiviewOVR', [...arguments]);
   }
 }
@@ -248,8 +226,7 @@ export class OESVertexArrayObject extends TransferrableGLExtension implements OE
   }
 
   createVertexArrayOES(): GLVertexArrayObjectOES | null {
-    const id = this.context.nextObjectId();
-    this.createObjectReference(id, 'createVertexArrayOES', []);
+    const id = this.createObjectReference('createVertexArrayOES', []);
     return new GLVertexArrayObjectOES(id);
   }
 
@@ -298,8 +275,7 @@ export class EXTDisjointTimerQuery extends TransferrableGLExtension /* implement
   }
 
   createQueryEXT(): vGLQuery {
-    const queryId = this.context.nextObjectId();
-    this.createObjectReference(queryId, 'createQueryEXT', []);
+    const queryId = this.createObjectReference('createQueryEXT', []);
     return new vGLQuery(queryId);
   }
 
@@ -317,6 +293,7 @@ export class EXTDisjointTimerQuery extends TransferrableGLExtension /* implement
   getQueryEXT(target: number, pname: number): any {
     throw new Error('NOT IMPLEMENTED');
   }
+
   getQueryObjectEXT(query: vGLQuery, target: number): any {
     throw new Error('NOT IMPLEMENTED');
   }
@@ -331,19 +308,53 @@ export class EXTDisjointTimerQuery extends TransferrableGLExtension /* implement
 }
 
 export class WEBGLMultiDraw extends TransferrableGLExtension implements WEBGL_multi_draw {
-  multiDrawArraysInstancedWEBGL(mode: GLenum, firstsList: Int32Array | GLint[], firstsOffset: GLuint, countsList: Int32Array | GLsizei[], countsOffset: GLuint, instanceCountsList: Int32Array | GLsizei[], instanceCountsOffset: GLuint, drawcount: GLsizei): void {
+  multiDrawArraysInstancedWEBGL(
+    mode: GLenum,
+    firstsList: Int32Array | GLint[],
+    firstsOffset: GLuint,
+    countsList: Int32Array | GLsizei[],
+    countsOffset: GLuint,
+    instanceCountsList: Int32Array | GLsizei[],
+    instanceCountsOffset: GLuint,
+    drawcount: GLsizei,
+  ): void {
     this[TransferrableKeys.mutated]('multiDrawArraysInstancedWEBGL', [...arguments]);
   }
 
-  multiDrawArraysWEBGL(mode: GLenum, firstsList: Int32Array | GLint[], firstsOffset: GLuint, countsList: Int32Array | GLsizei[], countsOffset: GLuint, drawcount: GLsizei): void {
+  multiDrawArraysWEBGL(
+    mode: GLenum,
+    firstsList: Int32Array | GLint[],
+    firstsOffset: GLuint,
+    countsList: Int32Array | GLsizei[],
+    countsOffset: GLuint,
+    drawcount: GLsizei,
+  ): void {
     this[TransferrableKeys.mutated]('multiDrawArraysWEBGL', [...arguments]);
   }
 
-  multiDrawElementsInstancedWEBGL(mode: GLenum, countsList: Int32Array | GLint[], countsOffset: GLuint, type: GLenum, offsetsList: Int32Array | GLsizei[], offsetsOffset: GLuint, instanceCountsList: Int32Array | GLsizei[], instanceCountsOffset: GLuint, drawcount: GLsizei): void {
+  multiDrawElementsInstancedWEBGL(
+    mode: GLenum,
+    countsList: Int32Array | GLint[],
+    countsOffset: GLuint,
+    type: GLenum,
+    offsetsList: Int32Array | GLsizei[],
+    offsetsOffset: GLuint,
+    instanceCountsList: Int32Array | GLsizei[],
+    instanceCountsOffset: GLuint,
+    drawcount: GLsizei,
+  ): void {
     this[TransferrableKeys.mutated]('multiDrawElementsInstancedWEBGL', [...arguments]);
   }
 
-  multiDrawElementsWEBGL(mode: GLenum, countsList: Int32Array | GLint[], countsOffset: GLuint, type: GLenum, offsetsList: Int32Array | GLsizei[], offsetsOffset: GLuint, drawcount: GLsizei): void {
+  multiDrawElementsWEBGL(
+    mode: GLenum,
+    countsList: Int32Array | GLint[],
+    countsOffset: GLuint,
+    type: GLenum,
+    offsetsList: Int32Array | GLsizei[],
+    offsetsOffset: GLuint,
+    drawcount: GLsizei,
+  ): void {
     this[TransferrableKeys.mutated]('multiDrawElementsWEBGL', [...arguments]);
   }
 }
@@ -376,5 +387,4 @@ export class OESDrawBuffersIndexed extends TransferrableGLExtension /* implement
   enableiOES(target: GLenum, index: GLuint): void {
     this[TransferrableKeys.mutated]('enableiOES', [...arguments]);
   }
-
 }

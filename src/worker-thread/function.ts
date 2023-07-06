@@ -1,18 +1,12 @@
-import {TransferrableKeys} from '../transfer/TransferrableKeys';
-import {Document} from './dom/Document';
-import {
-  CallFunctionResultToWorker,
-  FunctionCallToWorker,
-  MessageToWorker,
-  MessageType,
-  ResolveOrReject
-} from '../transfer/Messages';
-import {transfer} from './MutationTransfer';
-import {TransferrableMutationType, TransferrableObjectType} from '../transfer/TransferrableMutation';
-import {store} from './strings';
-import {DocumentStub} from './dom/DocumentStub';
-import {TransferrableObject} from "./worker-thread";
-import {serializeTransferrableObject} from "./serializeTransferrableObject";
+import { TransferrableKeys } from '../transfer/TransferrableKeys';
+import { Document } from './dom/Document';
+import { CallFunctionResultToWorker, FunctionCallToWorker, MessageToWorker, MessageType, ResolveOrReject } from '../transfer/Messages';
+import { transfer } from './MutationTransfer';
+import { TransferrableMutationType, TransferrableObjectType } from '../transfer/TransferrableMutation';
+import { store } from './strings';
+import { DocumentStub } from './dom/DocumentStub';
+import { TransferrableObject } from './worker-thread';
+import { serializeTransferrableObject } from './serializeTransferrableObject';
 
 const exportedFunctions: { [fnIdent: string]: Function } = {};
 
@@ -26,7 +20,7 @@ export function callFunction(document: Document | DocumentStub,
                              timeout?: number): Promise<any> {
 
   return new Promise((resolve, reject) => {
-    // Wraparound to 0 in case someone attempts to register over 9 quadrillion promises.
+    // Wraparound to 0 in case someone attempts to register over 9 quadrillion functions.
     if (fnCallCount >= Number.MAX_VALUE) {
       fnCallCount = 0;
     }
@@ -69,7 +63,7 @@ export function callFunction(document: Document | DocumentStub,
       ]);
 
       if (timeout && timeout > 0) {
-        timeoutObg = setTimeout(reject, timeout, new Error("Timeout"));
+        timeoutObg = setTimeout(reject, timeout, new Error('Timeout'));
       }
     }
   });

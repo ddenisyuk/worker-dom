@@ -1,7 +1,7 @@
-import {TransferrableGLObject, vGLActiveInfo} from "./TransferrableGLObjectTypes";
-import {parseGLSL} from "./glsl";
+import { TransferrableGLObject, vGLActiveInfo } from './TransferrableGLObjectTypes';
+import { parseGLSL } from './glsl';
 
-export class vGLShader extends TransferrableGLObject implements WebGLShader {
+export class GLShader extends TransferrableGLObject implements WebGLShader {
   public readonly type: number;
   public source: string | null;
   public compiled: boolean = false;
@@ -30,15 +30,10 @@ export class vGLShader extends TransferrableGLObject implements WebGLShader {
   }
 
   _processParams(params: { [key: string]: any }, context: WebGL2RenderingContext): vGLActiveInfo[] {
-
     const result: vGLActiveInfo[] = [];
 
-    for (let key in params) {
-      result.push(new vGLActiveInfo(key,
-        1,
-        this._getTypeId(params[key].type, context),
-        params[key].index)
-      );
+    for (const key in params) {
+      result.push(new vGLActiveInfo(key, 1, this._getTypeId(params[key].type, context), params[key].index));
     }
     return result;
   }
@@ -126,9 +121,8 @@ export class vGLShader extends TransferrableGLObject implements WebGLShader {
         return context.FLOAT_MAT4x2;
       case 'mat4x3':
         return context.FLOAT_MAT4x3;
-
       default:
-        throw 'not yet recognized type text: ' + text;
+        throw new Error('not yet recognized type text: ' + text);
     }
   }
 }

@@ -1,15 +1,15 @@
-import { TransferrableMutationType } from '../../transfer/TransferrableMutation';
+import { TransferrableMutationType, TransferrableObjectType } from '../../transfer/TransferrableMutation';
 import { TransferrableKeys } from '../../transfer/TransferrableKeys';
 import {
-  CanvasRenderingContext2D,
-  ImageSmoothingQuality,
-  CanvasTextAlign,
-  CanvasTextBaseline,
-  CanvasLineCap,
-  CanvasLineJoin,
   CanvasDirection,
   CanvasFillRule,
   CanvasImageSource,
+  CanvasLineCap,
+  CanvasLineJoin,
+  CanvasRenderingContext2D,
+  CanvasTextAlign,
+  CanvasTextBaseline,
+  ImageSmoothingQuality,
 } from './CanvasTypes';
 import { transfer } from '../MutationTransfer';
 import { Document } from '../dom/Document';
@@ -17,12 +17,12 @@ import { toLower } from '../../utils';
 import { store } from '../strings';
 import { HTMLElement } from '../dom/HTMLElement';
 import { serializeTransferrableObject } from '../serializeTransferrableObject';
-import { TransferrableObjectType } from '../../transfer/TransferrableMutation';
 import { TransferrableObject } from '../worker-thread';
 import { CanvasGradient } from './CanvasGradient';
 import { CanvasPattern } from './CanvasPattern';
 import { HTMLCanvasElement } from '../dom/HTMLCanvasElement';
 import { HTMLImageElement } from '../dom/HTMLImageElement';
+import { createObjectReference } from '../object-reference';
 
 /**
  * Handles calls to a CanvasRenderingContext2D object in cases where the user's environment does not
@@ -53,7 +53,6 @@ class OffscreenCanvasRenderingContext2DPolyfill<ElementType extends HTMLElement>
 
   private canvasElement: ElementType;
   private lineDash: number[];
-  private objectIndex = 0;
 
   constructor(canvas: ElementType) {
     this.canvasElement = canvas;
@@ -72,23 +71,6 @@ class OffscreenCanvasRenderingContext2DPolyfill<ElementType extends HTMLElement>
 
   [TransferrableKeys.serializeAsTransferrableObject](): number[] {
     return [TransferrableObjectType.CanvasRenderingContext2D, this.canvasElement[TransferrableKeys.index]];
-  }
-
-  /**
-   * Creates object in the main thread, and associates it with the id provided.
-   * @param objectId ID to associate the created object with.
-   * @param creationMethod Method to use for object creation.
-   * @param creationArgs Arguments to pass into the creation method.
-   */
-  private createObjectReference(objectId: number, creationMethod: string, creationArgs: any[]) {
-    transfer(this.canvasElement.ownerDocument as Document, [
-      TransferrableMutationType.OBJECT_CREATION,
-      store(creationMethod),
-      objectId,
-      creationArgs.length,
-      ...this[TransferrableKeys.serializeAsTransferrableObject](),
-      ...serializeTransferrableObject(creationArgs),
-    ]);
   }
 
   get canvas(): ElementType {
@@ -307,20 +289,17 @@ class OffscreenCanvasRenderingContext2DPolyfill<ElementType extends HTMLElement>
   }
 
   createLinearGradient(x0: number, y0: number, x1: number, y1: number): CanvasGradient {
-    const gradientId = this.objectIndex++;
-    this.createObjectReference(gradientId, 'createLinearGradient', [...arguments]);
+    const gradientId = createObjectReference(this.canvasElement.ownerDocument as Document, this, 'createLinearGradient', [...arguments]);
     return new CanvasGradient(gradientId, this.canvasElement.ownerDocument as Document);
   }
 
   createRadialGradient(x0: number, y0: number, r0: number, x1: number, y1: number, r1: number): CanvasGradient {
-    const gradientId = this.objectIndex++;
-    this.createObjectReference(gradientId, 'createRadialGradient', [...arguments]);
+    const gradientId = createObjectReference(this.canvasElement.ownerDocument as Document, this, 'createRadialGradient', [...arguments]);
     return new CanvasGradient(gradientId, this.canvasElement.ownerDocument as Document);
   }
 
   createPattern(image: HTMLCanvasElement | HTMLImageElement, repetition: string): CanvasPattern {
-    const patternId = this.objectIndex++;
-    this.createObjectReference(patternId, 'createPattern', [...arguments]);
+    const patternId = createObjectReference(this.canvasElement.ownerDocument as Document, this, 'createPattern', [...arguments]);
     return new CanvasPattern(patternId);
   }
 
@@ -339,7 +318,7 @@ class OffscreenCanvasRenderingContext2DPolyfill<ElementType extends HTMLElement>
     data[2] = this.imageDataStub[2];
     data[3] = this.imageDataStub[3];
 
-    return {data: data, height: sh, width: sw} as ImageData;
+    return { data, height: sh, width: sw } as ImageData;
   }
 
   putImageData() {}
