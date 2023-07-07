@@ -14,9 +14,7 @@ import {
 import { transfer } from '../MutationTransfer';
 import { Document } from '../dom/Document';
 import { toLower } from '../../utils';
-import { store } from '../strings';
 import { HTMLElement } from '../dom/HTMLElement';
-import { serializeTransferrableObject } from '../serializeTransferrableObject';
 import { TransferrableObject } from '../worker-thread';
 import { CanvasGradient } from './CanvasGradient';
 import { CanvasPattern } from './CanvasPattern';
@@ -60,13 +58,7 @@ class OffscreenCanvasRenderingContext2DPolyfill<ElementType extends HTMLElement>
   }
 
   private [TransferrableKeys.mutated](fnName: string, args: any[]) {
-    transfer(this.canvasElement.ownerDocument as Document, [
-      TransferrableMutationType.OBJECT_MUTATION,
-      store(fnName),
-      args.length,
-      ...this[TransferrableKeys.serializeAsTransferrableObject](),
-      ...serializeTransferrableObject(args),
-    ]);
+    transfer(this.canvasElement.ownerDocument as Document, [TransferrableMutationType.OBJECT_MUTATION, fnName, this, args]);
   }
 
   [TransferrableKeys.serializeAsTransferrableObject](): number[] {

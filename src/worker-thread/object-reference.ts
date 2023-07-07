@@ -1,9 +1,6 @@
 import { transfer } from './MutationTransfer';
 import { Document } from './dom/Document';
 import { TransferrableMutationType } from '../transfer/TransferrableMutation';
-import { store } from './strings';
-import { TransferrableKeys } from '../transfer/TransferrableKeys';
-import { serializeTransferrableObject } from './serializeTransferrableObject';
 import { DocumentStub } from './dom/DocumentStub';
 import { TransferrableObject } from './worker-thread';
 
@@ -30,14 +27,7 @@ export function createObjectReference(
   }
 
   const id = ++objectId;
-  transfer(document, [
-    TransferrableMutationType.OBJECT_CREATION,
-    store(creationMethod),
-    id,
-    creationArgs.length,
-    ...target[TransferrableKeys.serializeAsTransferrableObject](),
-    ...serializeTransferrableObject(creationArgs),
-  ]);
+  transfer(document, [TransferrableMutationType.OBJECT_CREATION, creationMethod, id, target, creationArgs]);
 
   return id;
 }

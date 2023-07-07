@@ -4,8 +4,6 @@ import { TransferrableKeys } from '../../../transfer/TransferrableKeys';
 import { transfer } from '../../MutationTransfer';
 import { Document } from '../../dom/Document';
 import { TransferrableMutationType } from '../../../transfer/TransferrableMutation';
-import { store } from '../../strings';
-import { serializeTransferrableObject } from '../../serializeTransferrableObject';
 import { GLConstants } from './GLConstants';
 import { GLShader } from './GLShader';
 import { createObjectReference } from '../../object-reference';
@@ -19,13 +17,7 @@ export abstract class TransferrableGLExtension extends TransferrableGLObject {
   }
 
   protected [TransferrableKeys.mutated](fnName: string, args: any[]) {
-    transfer(this.context.canvas.ownerDocument as Document, [
-      TransferrableMutationType.OBJECT_MUTATION,
-      store(fnName),
-      args.length,
-      ...this[TransferrableKeys.serializeAsTransferrableObject](),
-      ...serializeTransferrableObject(args),
-    ]);
+    transfer(this.context.canvas.ownerDocument as Document, [TransferrableMutationType.OBJECT_MUTATION, fnName, this, args]);
   }
 
   protected createObjectReference(creationMethod: string, creationArgs: any[]): number {

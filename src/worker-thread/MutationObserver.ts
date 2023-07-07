@@ -37,7 +37,7 @@ const pushMutation = (observer: MutationObserver, record: MutationRecord): void 
  * @param record
  * @param transferable
  */
-export function mutate(document: Document, record: MutationRecord, transferable: Array<number>): void {
+export function mutate(document: Document, record: MutationRecord, transferable: Array<any>): void {
   // Post-message `transferable` to the main thread to apply mutations.
   transfer(document, transferable);
 

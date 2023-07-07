@@ -21,8 +21,6 @@ import {
   vGLTransformFeedback,
   vGLVertexArrayObject,
 } from './gl/TransferrableGLObjectTypes';
-import { store } from '../strings';
-import { serializeTransferrableObject } from '../serializeTransferrableObject';
 import {
   ANGLEInstancedArrays,
   EXTBlendMinmax,
@@ -1902,13 +1900,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   private [TransferrableKeys.mutated](fnName: string, args: any[]) {
-    transfer(this.canvas.ownerDocument as Document, [
-      TransferrableMutationType.OBJECT_MUTATION,
-      store(fnName),
-      args.length,
-      ...this[TransferrableKeys.serializeAsTransferrableObject](),
-      ...serializeTransferrableObject(args),
-    ]);
+    transfer(this.canvas.ownerDocument as Document, [TransferrableMutationType.OBJECT_MUTATION, fnName, this, args]);
   }
 
   private _bindBuffer(target: GLenum, buffer: vGLBuffer | null): void {

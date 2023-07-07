@@ -7,6 +7,7 @@ import { emitter, Emitter } from '../Emitter';
 import { createTestingDocument } from '../DocumentCreation';
 import { Element } from '../../worker-thread/dom/Element';
 import { Event } from '../../worker-thread/Event';
+import { serializeTransferableMessage } from '../../worker-thread/serializeTransferrableObject';
 
 const test = anyTest as TestInterface<{
   document: Document;
@@ -35,11 +36,16 @@ test.serial.cb('Node.removeEventListener transfers an event subscription', (t) =
   const { div, eventHandler, emitter } = t.context;
 
   function transmitted(strings: Array<string>, message: MutationFromWorker, buffers: Array<ArrayBuffer>) {
-    t.deepEqual(
-      Array.from(new Uint16Array(message[TransferrableKeys.mutations])),
-      [TransferrableMutationType.EVENT_SUBSCRIPTION, div[TransferrableKeys.index], 1, 0, strings.indexOf('click'), 0],
-      'mutation is as expected',
-    );
+    const expected = serializeTransferableMessage([
+      TransferrableMutationType.EVENT_SUBSCRIPTION,
+      div[TransferrableKeys.index],
+      1,
+      0,
+      strings.indexOf('click'),
+      0,
+    ]);
+
+    t.deepEqual(message[TransferrableKeys.mutations], [expected.internal], 'mutation is as expected');
     t.end();
   }
 
@@ -54,11 +60,16 @@ test.serial.cb('Node.removeEventListener transfers the correct subscription when
   const { div, eventHandler, emitter } = t.context;
 
   function transmitted(strings: Array<string>, message: MutationFromWorker, buffers: Array<ArrayBuffer>) {
-    t.deepEqual(
-      Array.from(new Uint16Array(message[TransferrableKeys.mutations])),
-      [TransferrableMutationType.EVENT_SUBSCRIPTION, div[TransferrableKeys.index], 1, 0, strings.indexOf('click'), 1],
-      'mutation is as expected',
-    );
+    const expected = serializeTransferableMessage([
+      TransferrableMutationType.EVENT_SUBSCRIPTION,
+      div[TransferrableKeys.index],
+      1,
+      0,
+      strings.indexOf('click'),
+      1,
+    ]);
+
+    t.deepEqual(message[TransferrableKeys.mutations], [expected.internal], 'mutation is as expected');
     t.end();
   }
 

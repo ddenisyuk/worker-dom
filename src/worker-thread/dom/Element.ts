@@ -1,7 +1,7 @@
-import { Node, NodeName, NamespaceURI } from './Node';
+import { NamespaceURI, Node, NodeName, propagate } from './Node';
 import { ParentNode } from './ParentNode';
 import { DOMTokenList, synchronizedAccessor } from './DOMTokenList';
-import { Attr, toString as attrsToString, matchPredicate as matchAttrPredicate } from './Attr';
+import { Attr, matchPredicate as matchAttrPredicate, toString as attrsToString } from './Attr';
 import { mutate } from '../MutationObserver';
 import { MutationRecordType } from '../MutationRecord';
 import { toLower, toUpper } from '../../utils';
@@ -12,12 +12,11 @@ import { store as storeString } from '../strings';
 import { Document } from './Document';
 import { transfer } from '../MutationTransfer';
 import { TransferrableKeys } from '../../transfer/TransferrableKeys';
-import { NodeType, HTML_NAMESPACE } from '../../transfer/TransferrableNodes';
+import { HTML_NAMESPACE, NodeType } from '../../transfer/TransferrableNodes';
 import { TransferrableBoundingClientRect } from '../../transfer/TransferrableBoundClientRect';
 import { TransferrableMutationType } from '../../transfer/TransferrableMutation';
-import { MessageToWorker, MessageType, BoundingClientRectToWorker } from '../../transfer/Messages';
+import { BoundingClientRectToWorker, MessageToWorker, MessageType } from '../../transfer/Messages';
 import { parse } from '../../third_party/html-parser/html-parser';
-import { propagate } from './Node';
 import { Event } from '../Event';
 import { getNextElementSibling, getPreviousElementSibling } from './elementSibling';
 
@@ -242,15 +241,7 @@ export class Element extends ParentNode {
         type: MutationRecordType.CHILD_LIST,
         target: this,
       },
-      [
-        TransferrableMutationType.CHILD_LIST,
-        this[TransferrableKeys.index],
-        0,
-        0,
-        0,
-        this.childNodes.length,
-        ...this.childNodes.map((node) => node[TransferrableKeys.index]),
-      ],
+      [TransferrableMutationType.CHILD_LIST, this, 0, 0, 0, this.childNodes.length, ...this.childNodes.map((node) => node[TransferrableKeys.index])],
     );
 
     this.childNodes = [];
@@ -370,13 +361,7 @@ export class Element extends ParentNode {
         value: valueAsString,
         oldValue,
       },
-      [
-        TransferrableMutationType.ATTRIBUTES,
-        this[TransferrableKeys.index],
-        storeString(name),
-        storeString(namespaceURI),
-        value !== null ? storeString(valueAsString) + 1 : 0,
-      ],
+      [TransferrableMutationType.ATTRIBUTES, this, name, namespaceURI, value !== null ? storeString(valueAsString) + 1 : 0],
     );
   }
 
@@ -439,9 +424,9 @@ export class Element extends ParentNode {
         },
         [
           TransferrableMutationType.ATTRIBUTES,
-          this[TransferrableKeys.index],
-          storeString(name),
-          storeString(namespaceURI),
+          this,
+          name,
+          namespaceURI,
           0, // 0 means no value
         ],
       );
@@ -559,7 +544,7 @@ export class Element extends ParentNode {
         resolve(defaultValue);
       } else {
         this.ownerDocument.addGlobalEventListener('message', messageHandler);
-        transfer(this.ownerDocument as Document, [TransferrableMutationType.GET_BOUNDING_CLIENT_RECT, this[TransferrableKeys.index]]);
+        transfer(this.ownerDocument as Document, [TransferrableMutationType.GET_BOUNDING_CLIENT_RECT, this]);
         setTimeout(resolve, 500, defaultValue); // TODO: Why a magical constant, define and explain.
       }
     });
@@ -575,7 +560,7 @@ export class Element extends ParentNode {
   // https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollIntoView
   scrollIntoView() {
     if (this.isConnected) {
-      transfer(this.ownerDocument as Document, [TransferrableMutationType.SCROLL_INTO_VIEW, this[TransferrableKeys.index]]);
+      transfer(this.ownerDocument as Document, [TransferrableMutationType.SCROLL_INTO_VIEW, this]);
     }
   }
 

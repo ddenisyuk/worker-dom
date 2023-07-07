@@ -2,10 +2,10 @@ import { MessageType } from '../../transfer/Messages';
 import { TransferrableKeys } from '../../transfer/TransferrableKeys';
 import {
   ADD_EVENT_SUBSCRIPTION_LENGTH,
-  REMOVE_EVENT_SUBSCRIPTION_LENGTH,
-  EventSubscriptionMutationIndex,
-  TransferrableTouchList,
   AddEventRegistrationIndex,
+  EventSubscriptionMutationIndex,
+  REMOVE_EVENT_SUBSCRIPTION_LENGTH,
+  TransferrableTouchList,
 } from '../../transfer/TransferrableEvent';
 import { WorkerContext } from '../worker';
 import { CommandExecutorInterface } from './interface';
@@ -157,7 +157,7 @@ export const EventSubscriptionProcessor: CommandExecutorInterface = (strings, no
    * @param mutations Uint16Array for this set of changes
    * @param iterator current location in array to perform this change on
    */
-  const processListenerChange = (target: RenderableElement, addEvent: boolean, mutations: Uint16Array, iterator: number): void => {
+  const processListenerChange = (target: RenderableElement, addEvent: boolean, mutations: any[], iterator: number): void => {
     const type = strings.get(mutations[iterator]);
     const eventIndex = mutations[iterator + AddEventRegistrationIndex.Index];
 
@@ -193,23 +193,21 @@ export const EventSubscriptionProcessor: CommandExecutorInterface = (strings, no
   };
 
   return {
-    execute(mutations: Uint16Array, startPosition: number, allowedMutation: boolean): number {
-      const addEventListenerCount = mutations[startPosition + EventSubscriptionMutationIndex.AddEventListenerCount];
-      const removeEventListenerCount = mutations[startPosition + EventSubscriptionMutationIndex.RemoveEventListenerCount];
-      const addEventListenersPosition =
-        startPosition + EventSubscriptionMutationIndex.Events + removeEventListenerCount * REMOVE_EVENT_SUBSCRIPTION_LENGTH;
+    execute(mutations: any[], allowedMutation: boolean) {
+      const addEventListenerCount = mutations[EventSubscriptionMutationIndex.AddEventListenerCount];
+      const removeEventListenerCount = mutations[EventSubscriptionMutationIndex.RemoveEventListenerCount];
+      const addEventListenersPosition = EventSubscriptionMutationIndex.Events + removeEventListenerCount * REMOVE_EVENT_SUBSCRIPTION_LENGTH;
       const endPosition =
-        startPosition +
         EventSubscriptionMutationIndex.Events +
         addEventListenerCount * ADD_EVENT_SUBSCRIPTION_LENGTH +
         removeEventListenerCount * REMOVE_EVENT_SUBSCRIPTION_LENGTH;
 
       if (allowedExecution && allowedMutation) {
-        const targetIndex = mutations[startPosition + EventSubscriptionMutationIndex.Target];
+        const targetIndex = mutations[EventSubscriptionMutationIndex.Target];
         const target = nodeContext.getNode(targetIndex);
 
         if (target) {
-          let iterator = startPosition + EventSubscriptionMutationIndex.Events;
+          let iterator = EventSubscriptionMutationIndex.Events;
           while (iterator < endPosition) {
             const isRemoveEvent = iterator <= addEventListenersPosition;
             processListenerChange(target, isRemoveEvent, mutations, iterator);
@@ -222,22 +220,20 @@ export const EventSubscriptionProcessor: CommandExecutorInterface = (strings, no
 
       return endPosition;
     },
-    print(mutations: Uint16Array, startPosition: number): {} {
-      const addEventListenerCount = mutations[startPosition + EventSubscriptionMutationIndex.AddEventListenerCount];
-      const removeEventListenerCount = mutations[startPosition + EventSubscriptionMutationIndex.RemoveEventListenerCount];
-      const addEventListenersPosition =
-        startPosition + EventSubscriptionMutationIndex.Events + removeEventListenerCount * REMOVE_EVENT_SUBSCRIPTION_LENGTH;
+    print(mutations: any[]): {} {
+      const addEventListenerCount = mutations[EventSubscriptionMutationIndex.AddEventListenerCount];
+      const removeEventListenerCount = mutations[EventSubscriptionMutationIndex.RemoveEventListenerCount];
+      const addEventListenersPosition = EventSubscriptionMutationIndex.Events + removeEventListenerCount * REMOVE_EVENT_SUBSCRIPTION_LENGTH;
       const endPosition =
-        startPosition +
         EventSubscriptionMutationIndex.Events +
         addEventListenerCount * ADD_EVENT_SUBSCRIPTION_LENGTH +
         removeEventListenerCount * REMOVE_EVENT_SUBSCRIPTION_LENGTH;
-      const targetIndex = mutations[startPosition + EventSubscriptionMutationIndex.Target];
+      const targetIndex = mutations[EventSubscriptionMutationIndex.Target];
       const target = nodeContext.getNode(targetIndex);
       const removedEventListeners: Array<{ type: string; index: number }> = [];
       const addedEventListeners: Array<{ type: string; index: number }> = [];
 
-      let iterator = startPosition + EventSubscriptionMutationIndex.Events;
+      let iterator = EventSubscriptionMutationIndex.Events;
       while (iterator < endPosition) {
         const isRemoveEvent = iterator <= addEventListenersPosition;
         const eventList = isRemoveEvent ? addedEventListeners : removedEventListeners;
