@@ -7,7 +7,15 @@ import { Document } from './dom/Document';
 import { DocumentFragment } from './dom/DocumentFragment';
 import { DOMTokenList } from './dom/DOMTokenList';
 import { Element } from './dom/Element';
-import { Event as WorkerDOMEvent } from './Event';
+import {
+  Event as WorkerDOMEvent,
+  FocusEvent,
+  InputEvent,
+  KeyboardEvent,
+  MouseEvent,
+  TouchEvent,
+  WheelEvent
+} from './Event';
 import { GlobalScope, WorkerDOMGlobalScope } from './WorkerDOMGlobalScope';
 import { HTMLAnchorElement } from './dom/HTMLAnchorElement';
 import { HTMLButtonElement } from './dom/HTMLButtonElement';
@@ -47,6 +55,9 @@ import { SVGElement } from './dom/SVGElement';
 import { Text } from './dom/Text';
 import { wrap as longTaskWrap } from './long-task';
 import { HydrateFunction } from './hydrate';
+import { HTMLMediaElement } from './dom/HTMLMediaElement';
+import { HTMLAudioElement } from './dom/HTMLAudioElement';
+import { HTMLVideoElement } from './dom/HTMLVideoElement';
 
 declare const WORKER_DOM_DEBUG: boolean;
 
@@ -91,8 +102,17 @@ const globalScope: GlobalScope = {
   HTMLTableSectionElement,
   HTMLTimeElement,
   SVGElement,
+  HTMLMediaElement,
+  HTMLAudioElement,
+  HTMLVideoElement,
   Text,
   Event: WorkerDOMEvent,
+  MouseEvent,
+  TouchEvent,
+  FocusEvent,
+  KeyboardEvent,
+  WheelEvent,
+  InputEvent,
   MutationObserver,
   requestAnimationFrame: self.requestAnimationFrame || rafPolyfill,
   cancelAnimationFrame: self.cancelAnimationFrame || cafPolyfill,

@@ -40,38 +40,13 @@ export interface TransferrableEvent {
   readonly [TransferrableKeys.offsetY]?: number;
   readonly [TransferrableKeys.touches]?: TransferrableTouchList;
   readonly [TransferrableKeys.changedTouches]?: TransferrableTouchList;
+  readonly [TransferrableKeys.clientX]?: number;
+  readonly [TransferrableKeys.clientY]?: number;
+  readonly [TransferrableKeys.button]?: number;
+  readonly [TransferrableKeys.buttons]?: number;
+  readonly [TransferrableKeys.detail]?: number;
+  readonly [TransferrableKeys.listenableProperties]?: any[];
 }
-
-/**
- * Add Event Registration Transfer
- *
- * [
- *   type,
- *   index,
- *   capture,
- *   once,
- *   passive,
- *   workerDOMPreventDefault
- * ]
- */
-export const enum AddEventRegistrationIndex {
-  Type = 0,
-  Index = 1,
-  Capture = 2,
-  Once = 3,
-  Passive = 4,
-  WorkerDOMPreventDefault = 5,
-}
-export const ADD_EVENT_SUBSCRIPTION_LENGTH = 6;
-
-/**
- * Remove Event Registration Transfer
- */
-export const enum RemoveEventRegistrationIndex {
-  Type = 0,
-  Index = 1,
-}
-export const REMOVE_EVENT_SUBSCRIPTION_LENGTH = 2;
 
 /**
  * Event Subscription Transfer
@@ -87,8 +62,8 @@ export const REMOVE_EVENT_SUBSCRIPTION_LENGTH = 2;
  */
 export const enum EventSubscriptionMutationIndex {
   Target = 1,
-  RemoveEventListenerCount = 2,
-  AddEventListenerCount = 3,
-  Events = 4,
-  End = 4,
+  IsAddEvent = 2,
+  EventType = 3,
+  PreventDefault = 4,
+  End = 5,
 }

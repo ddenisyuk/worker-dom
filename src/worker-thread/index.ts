@@ -33,7 +33,15 @@ import { Document } from './dom/Document';
 import { GlobalScope } from './WorkerDOMGlobalScope';
 import { initialize } from './initialize';
 import { MutationObserver } from './MutationObserver';
-import { Event as WorkerDOMEvent } from './Event';
+import {
+  Event as WorkerDOMEvent,
+  FocusEvent,
+  InputEvent,
+  KeyboardEvent,
+  MouseEvent,
+  TouchEvent,
+  WheelEvent
+} from './Event';
 import { Text } from './dom/Text';
 import { HTMLDataListElement } from './dom/HTMLDataListElement';
 import { CharacterData } from './dom/CharacterData';
@@ -43,6 +51,9 @@ import { DocumentFragment } from './dom/DocumentFragment';
 import { Element } from './dom/Element';
 import { rafPolyfill, cafPolyfill } from './AnimationFrame';
 import { HydrateFunction } from './hydrate';
+import { HTMLMediaElement } from './dom/HTMLMediaElement';
+import { HTMLAudioElement } from './dom/HTMLAudioElement';
+import { HTMLVideoElement } from './dom/HTMLVideoElement';
 
 const globalScope: GlobalScope = {
   innerWidth: 0,
@@ -85,8 +96,17 @@ const globalScope: GlobalScope = {
   HTMLTableSectionElement,
   HTMLTimeElement,
   SVGElement,
+  HTMLMediaElement,
+  HTMLAudioElement,
+  HTMLVideoElement,
   Text,
   Event: WorkerDOMEvent,
+  MouseEvent,
+  TouchEvent,
+  FocusEvent,
+  KeyboardEvent,
+  WheelEvent,
+  InputEvent,
   MutationObserver,
   requestAnimationFrame: self.requestAnimationFrame || rafPolyfill,
   cancelAnimationFrame: self.cancelAnimationFrame || cafPolyfill,

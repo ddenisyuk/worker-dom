@@ -28,7 +28,15 @@ import { HTMLTableRowElement } from './dom/HTMLTableRowElement';
 import { HTMLTableSectionElement } from './dom/HTMLTableSectionElement';
 import { HTMLTimeElement } from './dom/HTMLTimeElement';
 import { Document } from './dom/Document';
-import { EventHandler, Event as WorkerDOMEvent } from './Event';
+import {
+  EventHandler,
+  Event as WorkerDOMEvent,
+  MouseEvent,
+  TouchEvent,
+  FocusEvent,
+  KeyboardEvent,
+  WheelEvent, InputEvent
+} from './Event';
 import { MutationObserver } from './MutationObserver';
 import { Storage } from './Storage';
 import { SVGElement } from './dom/SVGElement';
@@ -42,6 +50,9 @@ import { DOMTokenList } from './dom/DOMTokenList';
 import { Element } from './dom/Element';
 import { DocumentStub } from './dom/DocumentStub';
 import { OffscreenCanvas } from './canvas/CanvasTypes';
+import { HTMLMediaElement } from './dom/HTMLMediaElement';
+import { HTMLAudioElement } from './dom/HTMLAudioElement';
+import { HTMLVideoElement } from './dom/HTMLVideoElement';
 
 /**
  * Should only contain properties that exist on Window.
@@ -90,10 +101,19 @@ export interface GlobalScope {
   HTMLTableSectionElement: typeof HTMLTableSectionElement;
   HTMLTimeElement: typeof HTMLTimeElement;
   SVGElement: typeof SVGElement;
+  HTMLMediaElement: typeof HTMLMediaElement;
+  HTMLAudioElement: typeof HTMLAudioElement;
+  HTMLVideoElement: typeof HTMLVideoElement;
   Text: typeof Text;
   // Event exists natively in web workers but override with our synthetic event
   // implementation to enable setting readonly properties like currentTarget.
   Event: typeof WorkerDOMEvent;
+  MouseEvent: typeof MouseEvent;
+  TouchEvent: typeof TouchEvent;
+  FocusEvent: typeof FocusEvent;
+  KeyboardEvent: typeof KeyboardEvent;
+  WheelEvent: typeof WheelEvent;
+  InputEvent: typeof InputEvent;
   MutationObserver: typeof MutationObserver;
   OffscreenCanvas?: OffscreenCanvas;
   ImageBitmap?: typeof ImageBitmap;
