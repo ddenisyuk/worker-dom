@@ -33,7 +33,14 @@ import { MutationObserver } from '../worker-thread/MutationObserver';
 import { GlobalScope } from '../worker-thread/WorkerDOMGlobalScope';
 import { HTMLCanvasElement } from '../worker-thread/dom/HTMLCanvasElement';
 import { CanvasRenderingContext2D } from '../worker-thread/canvas/CanvasTypes';
-import { Event as WorkerDOMEvent } from '../worker-thread/Event';
+import {
+  Event as WorkerDOMEvent,
+  FocusEvent, InputEvent,
+  KeyboardEvent,
+  MouseEvent,
+  TouchEvent,
+  WheelEvent
+} from '../worker-thread/Event';
 import { createStorage } from '../worker-thread/Storage';
 import { StorageLocation } from '../transfer/TransferrableStorage';
 import { CharacterData } from '../worker-thread/dom/CharacterData';
@@ -117,6 +124,12 @@ const GlobalScope: GlobalScope = {
   HTMLVideoElement,
   Text,
   Event: WorkerDOMEvent,
+  MouseEvent: MouseEvent,
+  TouchEvent: TouchEvent,
+  FocusEvent: FocusEvent,
+  KeyboardEvent: KeyboardEvent,
+  WheelEvent: WheelEvent,
+  InputEvent: InputEvent,
   MutationObserver,
   requestAnimationFrame: rafPolyfill,
   cancelAnimationFrame: cafPolyfill,
