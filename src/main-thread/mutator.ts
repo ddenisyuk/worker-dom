@@ -24,6 +24,7 @@ import { BytesStream } from '../transfer/BytesStream';
 import { deserializeTransferableMessage } from './deserializeTransferrableObject';
 import { MessageType } from '../transfer/Messages';
 import { Phase } from '../transfer/Phase';
+import { ObjectDeletionProcessor } from './commands/object-deletion';
 
 export class MutatorProcessor {
   private stringContext: StringContext;
@@ -81,6 +82,7 @@ export class MutatorProcessor {
       [TransferrableMutationType.FUNCTION_CALL]: FunctionProcessor.apply(null, args),
       [TransferrableMutationType.SCROLL_INTO_VIEW]: ScrollIntoViewProcessor.apply(null, args),
       [TransferrableMutationType.CALL_FUNCTION]: CallFunctionProcessor.apply(null, args),
+      [TransferrableMutationType.OBJECT_DELETION]: ObjectDeletionProcessor.apply(null, args),
     };
   }
 
