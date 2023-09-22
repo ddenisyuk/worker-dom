@@ -102,31 +102,21 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   private readonly _serializedAsTransferrableObject: number[];
 
-  private _parameters: { [key: number]: any };
-  private _supportedExtensions: string[] | null = null;
+  private readonly _supportedExtensions: string[] = [];
   private readonly _extensions: { [key: string]: any } = {};
-  private _contextAttributes: WebGLContextAttributes | null = null;
-  private readonly _buffers: { [key: string]: vGLBuffer | null } = {
-    arrayBuffer: null,
-    elementArrayBuffer: null,
-    copyReadBuffer: null,
-    copyWriteBuffer: null,
-    transformFeedbackBuffer: null,
-    uniformBuffer: null,
-    pixelPackBuffer: null,
-    pixelUnpackBuffer: null,
-    framebuffer: null,
-    renderbuffer: null,
-    drawFramebuffer: null,
-    readFramebuffer: null,
-  };
+  private readonly _parameters: { [key: number]: any };
+  private readonly _buffers: { [key: GLenum]: vGLBuffer | null } = {};
+  private readonly _indexedBuffers: { [key: GLenum]: Array<{ size: number; offset: number; buffer: vGLBuffer | null } | null> };
   private readonly _bindings: { [key: string]: TransferrableGLObject | null } = {
-    texture2D: null,
     program: null,
     vertexArray: null,
     transformFeedback: null,
     sampler: null,
   };
+  private readonly _boundTextures: { [key: GLenum]: { [key: GLenum]: vGLTexture | null } } = {
+    [this.TEXTURE0]: {},
+  };
+
   // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/isEnabled
   // By default, all capabilities except gl.DITHER are disabled.
   private readonly _capabilities: { [key: GLenum]: boolean } = {
@@ -141,6 +131,10 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     [this.STENCIL_TEST]: false,
     [this.RASTERIZER_DISCARD]: false,
   };
+
+  private _contextAttributes: WebGLContextAttributes | null = null;
+  private _activeTexture: GLenum = this.TEXTURE0;
+  private _error: GLenum = this.NO_ERROR;
 
   constructor(id: number, canvas: HTMLCanvasElement, contextAttributes: WebGLContextAttributes | undefined, options?: WebGLOptions | null) {
     super();
@@ -162,15 +156,13 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
 
     options = options || ({} as WebGLOptions);
-    const supportedExtensions = options.extensions || [];
-    if (supportedExtensions.length == 0) {
+    this._supportedExtensions = options.extensions || [];
+    if (this._supportedExtensions.length == 0) {
       callFunction(this.canvas.ownerDocument as Document, this, 'getSupportedExtensions', [])
-        .then((result) => (this._supportedExtensions = result))
+        .then((result) => this._supportedExtensions.push(...result))
         .catch((reason) => {
           console.warn('Failed to get WebGL supported extensions', reason);
         });
-    } else {
-      this._supportedExtensions = supportedExtensions;
     }
 
     this._parameters = options.parameters || {};
@@ -183,15 +175,34 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
             console.warn(`Failed to get WebGL parameter ${parameter}`, reason);
           });
       });
+
+    this._indexedBuffers = {
+      [this.TRANSFORM_FEEDBACK_BUFFER]: new Array(this.getParameter(this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)),
+      [this.UNIFORM_BUFFER]: new Array(this.getParameter(this.MAX_UNIFORM_BUFFER_BINDINGS)),
+    };
   }
 
+  /**
+   * https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/activeTexture
+   * @param texture The texture unit to make active. The value is a gl.TEXTUREI where I is within the range from 0 to gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS - 1.
+   * @throws If texture is not one of gl.TEXTUREI, where I is within the range from 0 to gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS - 1, a gl.INVALID_ENUM error is thrown.
+   */
   activeTexture(texture: GLenum): void {
+    if (texture - this.TEXTURE0 >= this.getParameter(this.MAX_COMBINED_TEXTURE_IMAGE_UNITS)) {
+      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'activeTexture', 'texture unit out of range');
+      return;
+    }
+
     this[TransferrableKeys.mutated]('activeTexture', arguments);
+    this._activeTexture = texture;
+    if (!this._boundTextures[this._activeTexture]) {
+      this._boundTextures[this._activeTexture] = {};
+    }
   }
 
   attachShader(program: GLProgram, shader: GLShader): void {
     this[TransferrableKeys.mutated]('attachShader', arguments);
-    program.attachShader(shader);
+    program.attachShader(shader, this);
   }
 
   beginQuery(target: GLenum, query: vGLQuery): void {
@@ -204,89 +215,240 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   bindAttribLocation(program: GLProgram, index: GLuint, name: string): void {
     this[TransferrableKeys.mutated]('bindAttribLocation', arguments);
+
+    const attrib = program.getAttribute(name);
+    if (attrib) {
+      // TODO: on else throw error?
+      attrib.location = index;
+    }
   }
 
   bindBuffer(target: GLenum, buffer: vGLBuffer | null): void {
-    this[TransferrableKeys.mutated]('bindBuffer', arguments);
-    if (buffer) {
-      buffer.target = target;
+    if (!this._validateBinding(buffer, this.isBuffer, 'bindBuffer', 'WebGLBuffer', 2)) {
+      return;
     }
-    const currentBinding = this._getBindedBuffer(target);
-    if (currentBinding && currentBinding !== buffer) {
-      currentBinding.target = 0;
+
+    switch (target) {
+      case this.ELEMENT_ARRAY_BUFFER:
+      case this.COPY_READ_BUFFER:
+      case this.COPY_WRITE_BUFFER:
+      case this.TRANSFORM_FEEDBACK_BUFFER:
+      case this.UNIFORM_BUFFER:
+      case this.PIXEL_PACK_BUFFER:
+      case this.PIXEL_UNPACK_BUFFER:
+      case this.ARRAY_BUFFER: {
+        this[TransferrableKeys.mutated]('bindBuffer', arguments);
+        this._bindBuffer(target, buffer);
+        break;
+      }
+      default: {
+        // WebGL: INVALID_ENUM: bindBuffer: invalid target - xxx
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindBuffer', 'invalid target - ' + target);
+      }
     }
-    this._bindBuffer(target, buffer);
   }
 
   bindBufferBase(target: GLenum, index: GLuint, buffer: vGLBuffer | null): void {
+    if (!this._validateBinding(buffer, this.isBuffer, 'bindBufferBase', 'WebGLBuffer', 3)) {
+      return;
+    }
+    // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glBindBufferBase.xhtml
+    switch (target) {
+      case this.TRANSFORM_FEEDBACK_BUFFER: {
+        if (index >= this.getParameter(this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)) {
+          // WebGL: INVALID_VALUE: bindBufferBase: index out of range
+          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferBase', 'index out of range');
+          return;
+        }
+        break;
+      }
+      case this.UNIFORM_BUFFER: {
+        if (index >= this.getParameter(this.MAX_UNIFORM_BUFFER_BINDINGS)) {
+          // WebGL: INVALID_VALUE: bindBufferBase: index out of range
+          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferBase', 'index out of range');
+          return;
+        }
+        break;
+      }
+      default: {
+        // WebGL: INVALID_ENUM: bindBufferBase: invalid target - xxx
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindBufferBase', 'invalid target - ' + target);
+        return;
+      }
+    }
+
     this[TransferrableKeys.mutated]('bindBufferBase', arguments);
+    this._bindBuffer(target, buffer);
+    this._indexedBuffers[target][index] = { size: 0, offset: 0, buffer: buffer };
   }
 
   bindBufferRange(target: GLenum, index: GLuint, buffer: vGLBuffer | null, offset: GLintptr, size: GLsizeiptr): void {
+    if (!this._validateBinding(buffer, this.isBuffer, 'bindBufferRange', 'WebGLBuffer', 3)) {
+      return;
+    }
+
+    if (buffer != null && size <= 0) {
+      // WebGL: INVALID_VALUE: bindBufferRange: size out of range
+      this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'size out of range');
+      return;
+    }
+
+    switch (target) {
+      case this.TRANSFORM_FEEDBACK_BUFFER: {
+        if (index >= this.getParameter(this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)) {
+          // WebGL: INVALID_VALUE: bindBufferRange: index out of range
+          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'index out of range');
+          return;
+        }
+
+        if (offset % 4 !== 0 || size % 4 !== 0) {
+          // WebGL: INVALID_VALUE: bindBufferRange: size or offset are not multiples of 4
+          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'size or offset are not multiples of 4');
+          return;
+        }
+
+        break;
+      }
+      case this.UNIFORM_BUFFER: {
+        if (index >= this.getParameter(this.MAX_UNIFORM_BUFFER_BINDINGS)) {
+          // WebGL: INVALID_VALUE: bindBufferRange: index out of range
+          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'index out of range');
+          return;
+        }
+        if (offset % this.getParameter(this.UNIFORM_BUFFER_OFFSET_ALIGNMENT) !== 0) {
+          // WebGL: INVALID_VALUE: bindBufferRange: index out of range
+          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'offset are not multiples of UNIFORM_BUFFER_OFFSET_ALIGNMENT');
+          return;
+        }
+        break;
+      }
+      default: {
+        // WebGL: INVALID_ENUM: bindBufferRange: invalid target - xxx
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindBufferRange', 'invalid target - ' + target);
+        return;
+      }
+    }
+
     this[TransferrableKeys.mutated]('bindBufferRange', arguments);
+    this._bindBuffer(target, buffer);
+
+    this._indexedBuffers[target][index] = { size, offset, buffer };
   }
 
   bindFramebuffer(target: GLenum, framebuffer: vGLFramebuffer | null): void {
-    this[TransferrableKeys.mutated]('bindFramebuffer', arguments);
+    if (!this._validateBinding(framebuffer, this.isFramebuffer, 'bindFramebuffer', 'WebGLFramebuffer', 2)) {
+      return;
+    }
 
     switch (target) {
       case this.FRAMEBUFFER:
-        this._buffers.framebuffer = framebuffer;
-        break;
       case this.DRAW_FRAMEBUFFER:
-        this._buffers.drawFramebuffer = framebuffer;
+      case this.READ_FRAMEBUFFER: {
+        this[TransferrableKeys.mutated]('bindFramebuffer', arguments);
+        this._bindBuffer(target, framebuffer);
         break;
-      case this.READ_FRAMEBUFFER:
-        this._buffers.readFramebuffer = framebuffer;
-        break;
-      default:
-        throw new Error(`Unexpected target: ${target}`);
+      }
+      default: {
+        // WebGL: INVALID_ENUM: bindFramebuffer: invalid target - xxx
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindFramebuffer', 'invalid target - ' + target);
+      }
     }
   }
 
   bindRenderbuffer(target: GLenum, renderbuffer: vGLRenderbuffer | null): void {
+    if (!this._validateBinding(renderbuffer, this.isRenderbuffer, 'bindRenderbuffer', 'WebGLRenderbuffer', 2)) {
+      return;
+    }
+
     switch (target) {
-      case this.RENDERBUFFER:
+      case this.RENDERBUFFER: {
         this[TransferrableKeys.mutated]('bindRenderbuffer', arguments);
-        this._buffers.renderbuffer = renderbuffer;
+        this._bindBuffer(target, renderbuffer);
         break;
-      default:
-        throw new Error(`Unexpected target: ${target}`);
+      }
+      default: {
+        // WebGL: INVALID_ENUM: bindRenderbuffer: invalid target - xxx
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindRenderbuffer', 'invalid target - ' + target);
+      }
     }
   }
 
   bindSampler(unit: GLuint, sampler: vGLSampler | null): void {
+    if (!this._validateBinding(sampler, this.isSampler, 'bindSampler', 'WebGLSampler', 2)) {
+      return;
+    }
+
     this[TransferrableKeys.mutated]('bindSampler', arguments);
     this._bindings.sampler = sampler;
   }
 
   bindTexture(target: GLenum, texture: vGLTexture | null): void {
+    if (!this._validateBinding(texture, this.isTexture, 'bindTexture', 'WebGLTexture', 2)) {
+      return;
+    }
+
     switch (target) {
-      case this.TEXTURE_2D: {
-        this[TransferrableKeys.mutated]('bindTexture', arguments);
-        this._bindings.texture2D = texture;
-        break;
-      }
+      case this.TEXTURE_2D:
       case this.TEXTURE_CUBE_MAP:
       case this.TEXTURE_2D_ARRAY:
-      case this.TEXTURE_3D:
-      default:
-        throw new Error(`Unexpected texture target: ${target}`);
+      case this.TEXTURE_3D: {
+        if (texture != null) {
+          if (texture.boundTarget != null && texture.boundTarget != target) {
+            // WebGL: INVALID_OPERATION: bindTexture: textures can not be used with multiple targets
+            this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', 'bindTexture', 'textures can not be used with multiple targets');
+            return;
+          }
+          texture.boundTarget = target;
+          if (!texture.texturesUnits.includes(this._activeTexture)) {
+            texture.texturesUnits.push(this._activeTexture);
+          }
+        } else {
+          const currentTexture = this._boundTextures[this._activeTexture][target];
+          if (currentTexture != null) {
+            const unitIdx = currentTexture.texturesUnits.indexOf(this._activeTexture);
+            if (unitIdx >= 0) {
+              currentTexture.texturesUnits.splice(unitIdx, 1);
+              if (currentTexture.texturesUnits.length == 0) {
+                currentTexture.boundTarget = null;
+              }
+            }
+          }
+        }
+
+        this[TransferrableKeys.mutated]('bindTexture', arguments);
+        this._boundTextures[this._activeTexture][target] = texture;
+        break;
+      }
+      default: {
+        // WebGL: INVALID_ENUM: bindTexture: invalid target
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindFramebuffer', 'invalid target - ' + target);
+      }
     }
   }
 
   bindTransformFeedback(target: GLenum, tf: vGLTransformFeedback | null): void {
+    if (!this._validateBinding(tf, this.isTransformFeedback, 'bindTransformFeedback', 'WebGLTransformFeedback', 2)) {
+      return;
+    }
+
     switch (target) {
-      case this.TRANSFORM_FEEDBACK:
+      case this.TRANSFORM_FEEDBACK: {
         this[TransferrableKeys.mutated]('bindTransformFeedback', arguments);
         this._bindings.transformFeedback = tf;
         break;
-      default:
-        throw new Error(`Unexpected target: ${target}`);
+      }
+      default: {
+        // WebGL: INVALID_ENUM: bindRenderbuffer: invalid target - xxx
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindTransformFeedback', 'invalid target - ' + target);
+      }
     }
   }
 
   bindVertexArray(array: vGLVertexArrayObject | null): void {
+    if (!this._validateBinding(array, this.isVertexArray, 'bindVertexArray', 'WebGLVertexArrayObject', 2)) {
+      return;
+    }
+
     this[TransferrableKeys.mutated]('bindVertexArray', arguments);
     this._bindings.vertexArray = array;
   }
@@ -332,7 +494,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   bufferData(target: GLenum, size: GLsizeiptr | BufferSource | null | ArrayBufferView, usage: GLenum, srcOffset?: GLuint, length?: GLuint): void {
     this[TransferrableKeys.mutated]('bufferData', arguments);
 
-    const buffer = this._getBindedBuffer(target);
+    const buffer = this._getBoundBuffer(target);
     if (buffer) {
       if (size) {
         if (typeof size === 'number') {
@@ -640,12 +802,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('deleteBuffer', arguments);
     this.deleteObjectReference(buffer.id);
 
-    buffer.delete();
-
-    if (buffer.target > 0 && this._getBindedBuffer(buffer.target) === buffer) {
-      this._bindBuffer(buffer.target, null);
-      buffer.target = 0;
-    }
+    this._deleteBuffer(buffer);
   }
 
   deleteFramebuffer(framebuffer: vGLFramebuffer | null): void {
@@ -653,10 +810,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('deleteFramebuffer', arguments);
     this.deleteObjectReference(framebuffer.id);
 
-    framebuffer.delete();
-    if (this._buffers.framebuffer === framebuffer) {
-      this._buffers.framebuffer = null;
-    }
+    this._deleteBuffer(framebuffer);
   }
 
   deleteProgram(program: GLProgram | null): void {
@@ -664,10 +818,10 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('deleteProgram', arguments);
     this.deleteObjectReference(program.id);
 
-    program.delete();
     if (this._bindings.program === program) {
       this._bindings.program = null;
     }
+    program.delete();
   }
 
   deleteQuery(query: vGLQuery | null): void {
@@ -683,10 +837,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('deleteRenderbuffer', arguments);
     this.deleteObjectReference(renderbuffer.id);
 
-    renderbuffer.delete();
-    if (this._buffers.renderbuffer === renderbuffer) {
-      this._buffers.renderbuffer = null;
-    }
+    this._deleteBuffer(renderbuffer);
   }
 
   deleteSampler(sampler: vGLSampler | null): void {
@@ -694,10 +845,10 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('deleteSampler', arguments);
     this.deleteObjectReference(sampler.id);
 
-    sampler.delete();
     if (this._bindings.sampler === sampler) {
       this._bindings.sampler = null;
     }
+    sampler.delete();
   }
 
   deleteShader(shader: GLShader | null): void {
@@ -721,10 +872,15 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('deleteTexture', arguments);
     this.deleteObjectReference(texture.id);
 
-    texture.delete();
-    if (this._bindings.texture2D === texture) {
-      this._bindings.texture2D = null;
+    if (texture.boundTarget != null) {
+      const target = texture.boundTarget;
+      texture.texturesUnits.forEach((textureUnit) => {
+        if (this._boundTextures[textureUnit][target] === texture) {
+          this._boundTextures[textureUnit][target] = null;
+        }
+      });
     }
+    texture.delete();
   }
 
   deleteTransformFeedback(tf: vGLTransformFeedback | null): void {
@@ -732,10 +888,10 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('deleteTransformFeedback', arguments);
     this.deleteObjectReference(tf.id);
 
-    tf.delete();
     if (this._bindings.transformFeedback === tf) {
       this._bindings.transformFeedback = null;
     }
+    tf.delete();
   }
 
   deleteVertexArray(vertexArray: vGLVertexArrayObject | null): void {
@@ -743,10 +899,10 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('deleteVertexArray', arguments);
     this.deleteObjectReference(vertexArray.id);
 
-    vertexArray.delete();
     if (this._bindings.vertexArray === vertexArray) {
       this._bindings.vertexArray = null;
     }
+    vertexArray.delete();
   }
 
   depthFunc(func: GLenum): void {
@@ -881,11 +1037,11 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     if (attr) {
       return attr.location;
     }
-    return -1;
+    return -1; // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/getAttribLocation#return_value
   }
 
   getBufferParameter(target: GLenum, pname: GLenum): any {
-    const buffer = this._getBindedBuffer(target);
+    const buffer = this._getBoundBuffer(target);
     if (buffer === null) {
       return null;
     }
@@ -912,7 +1068,9 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   getError(): GLenum {
-    return this.NO_ERROR;
+    const current = this._error;
+    this._error = this.NO_ERROR;
+    return current;
   }
 
   getExtension(name: string): any {
@@ -1002,7 +1160,41 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   getIndexedParameter(target: GLenum, index: GLuint): any {
-    throw new Error('NOT IMPLEMENTED');
+    // https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/getIndexedParameter
+    // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glGet.xhtml for GL_TRANSFORM_FEEDBACK_BUFFER_START
+
+    switch (target) {
+      case this.TRANSFORM_FEEDBACK_BUFFER_BINDING: {
+        return this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index]?.buffer || null;
+      }
+      case this.TRANSFORM_FEEDBACK_BUFFER_SIZE: {
+        return this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index]?.size || 0;
+      }
+      case this.TRANSFORM_FEEDBACK_BUFFER_START: {
+        return this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index]?.offset || 0;
+      }
+      case this.UNIFORM_BUFFER_BINDING: {
+        return this._indexedBuffers[this.UNIFORM_BUFFER][index]?.buffer || null;
+      }
+      case this.UNIFORM_BUFFER_SIZE: {
+        return this._indexedBuffers[this.UNIFORM_BUFFER][index]?.size || 0;
+      }
+      case this.UNIFORM_BUFFER_START: {
+        return this._indexedBuffers[this.UNIFORM_BUFFER][index]?.offset || 0;
+      }
+      default: {
+        // TODO: not implemented for OES_draw_buffers_indexed
+        //     gl.BLEND_EQUATION_RGB: Returns the RGB blend equation for the draw buffer at index.
+        //     gl.BLEND_EQUATION_ALPHA: Returns the alpha blend equation for the draw buffer at index.
+        //     gl.BLEND_SRC_RGB: Returns the source RGB blend function for the draw buffer at index.
+        //     gl.BLEND_SRC_ALPHA: Returns the source alpha blend function for the draw buffer at index.
+        //     gl.BLEND_DST_RGB: Returns the destination RGB blend function for the draw buffer at index.
+        //     gl.BLEND_DST_ALPHA: Returns the destination alpha blend function for the draw buffer at index.
+        //     gl.COLOR_WRITEMASK: Returns an array containing color components are enabled for the draw buffer at index.
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getIndexedParameter', 'invalid target ' + target);
+        return null;
+      }
+    }
   }
 
   getInternalformatParameter(target: GLenum, internalformat: GLenum, pname: GLenum): any {
@@ -1013,8 +1205,20 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     if (this._parameters && pname in this._parameters) return this._parameters[pname];
 
     switch (pname) {
+      case this.ACTIVE_TEXTURE: {
+        return this._activeTexture;
+      }
       case this.TEXTURE_BINDING_2D: {
-        return this._bindings.texture2D;
+        return this._boundTextures[this._activeTexture][this.TEXTURE_2D];
+      }
+      case this.TEXTURE_BINDING_2D_ARRAY: {
+        return this._boundTextures[this._activeTexture][this.TEXTURE_2D_ARRAY];
+      }
+      case this.TEXTURE_BINDING_3D: {
+        return this._boundTextures[this._activeTexture][this.TEXTURE_3D];
+      }
+      case this.TEXTURE_BINDING_CUBE_MAP: {
+        return this._boundTextures[this._activeTexture][this.TEXTURE_CUBE_MAP];
       }
       case this.CURRENT_PROGRAM: {
         return this._bindings.program;
@@ -1026,43 +1230,45 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
         return this._bindings.transformFeedback;
       }
       case this.ARRAY_BUFFER_BINDING: {
-        return this._getBindedBuffer(this.ARRAY_BUFFER);
+        return this._getBoundBuffer(this.ARRAY_BUFFER);
       }
       case this.ELEMENT_ARRAY_BUFFER_BINDING: {
-        return this._getBindedBuffer(this.ELEMENT_ARRAY_BUFFER);
+        return this._getBoundBuffer(this.ELEMENT_ARRAY_BUFFER);
       }
       case this.COPY_READ_BUFFER_BINDING: {
-        return this._getBindedBuffer(this.COPY_READ_BUFFER);
+        return this._getBoundBuffer(this.COPY_READ_BUFFER);
       }
       case this.COPY_WRITE_BUFFER_BINDING: {
-        return this._getBindedBuffer(this.COPY_WRITE_BUFFER);
+        return this._getBoundBuffer(this.COPY_WRITE_BUFFER);
       }
       case this.TRANSFORM_FEEDBACK_BUFFER_BINDING: {
-        return this._getBindedBuffer(this.TRANSFORM_FEEDBACK_BUFFER);
+        return this._getBoundBuffer(this.TRANSFORM_FEEDBACK_BUFFER);
       }
       case this.UNIFORM_BUFFER_BINDING: {
-        return this._getBindedBuffer(this.UNIFORM_BUFFER);
+        return this._getBoundBuffer(this.UNIFORM_BUFFER);
       }
       case this.PIXEL_PACK_BUFFER_BINDING: {
-        return this._getBindedBuffer(this.PIXEL_PACK_BUFFER);
+        return this._getBoundBuffer(this.PIXEL_PACK_BUFFER);
       }
       case this.PIXEL_UNPACK_BUFFER_BINDING: {
-        return this._getBindedBuffer(this.PIXEL_UNPACK_BUFFER);
+        return this._getBoundBuffer(this.PIXEL_UNPACK_BUFFER);
       }
       case this.FRAMEBUFFER_BINDING: {
-        return this._getBindedBuffer(this.FRAMEBUFFER);
+        return this._getBoundBuffer(this.FRAMEBUFFER);
       }
       case this.RENDERBUFFER_BINDING: {
-        return this._getBindedBuffer(this.RENDERBUFFER);
+        return this._getBoundBuffer(this.RENDERBUFFER);
       }
       case this.DRAW_FRAMEBUFFER_BINDING: {
-        return this._getBindedBuffer(this.DRAW_FRAMEBUFFER);
+        return this._getBoundBuffer(this.DRAW_FRAMEBUFFER);
       }
       case this.READ_FRAMEBUFFER_BINDING: {
-        return this._getBindedBuffer(this.READ_FRAMEBUFFER);
+        return this._getBoundBuffer(this.READ_FRAMEBUFFER);
       }
       default:
         if (!Object.values(this).includes(pname)) {
+          // WebGL: INVALID_ENUM: getParameter: invalid parameter name
+          this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getParameter', 'invalid parameter name');
           return null; // unknown parameter
         }
         // known parameter, but not loaded
@@ -1214,7 +1420,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   isBuffer(buffer: vGLBuffer | null): GLboolean {
-    return buffer != null && buffer instanceof vGLBuffer && !buffer.isDeleted();
+    return buffer != null && buffer instanceof vGLBuffer;
   }
 
   isContextLost(): boolean {
@@ -1226,43 +1432,43 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   isFramebuffer(framebuffer: vGLFramebuffer | null): GLboolean {
-    return framebuffer != null && framebuffer instanceof vGLFramebuffer && !framebuffer.isDeleted();
+    return framebuffer != null && framebuffer instanceof vGLFramebuffer;
   }
 
   isProgram(program: GLProgram | null): GLboolean {
-    return program != null && program instanceof GLProgram && !program.isDeleted();
+    return program != null && program instanceof GLProgram;
   }
 
   isQuery(query: vGLQuery | null): GLboolean {
-    return query != null && query instanceof vGLQuery && !query.isDeleted();
+    return query != null && query instanceof vGLQuery;
   }
 
   isRenderbuffer(renderbuffer: vGLRenderbuffer | null): GLboolean {
-    return renderbuffer != null && renderbuffer instanceof vGLRenderbuffer && !renderbuffer.isDeleted();
+    return renderbuffer != null && renderbuffer instanceof vGLRenderbuffer;
   }
 
   isSampler(sampler: vGLSampler | null): GLboolean {
-    return sampler != null && sampler instanceof vGLSampler && !sampler.isDeleted();
+    return sampler != null && sampler instanceof vGLSampler;
   }
 
   isShader(shader: GLShader | null): GLboolean {
-    return shader != null && shader instanceof GLShader && !shader.isDeleted();
+    return shader != null && shader instanceof GLShader;
   }
 
   isSync(sync: vGLSync | null): GLboolean {
-    return sync != null && sync instanceof vGLSync && !sync.isDeleted();
+    return sync != null && sync instanceof vGLSync;
   }
 
   isTexture(texture: vGLTexture | null): GLboolean {
-    return texture != null && texture instanceof vGLTexture && !texture.isDeleted();
+    return texture != null && texture instanceof vGLTexture;
   }
 
   isTransformFeedback(tf: vGLTransformFeedback | null): GLboolean {
-    return tf != null && tf instanceof vGLTransformFeedback && !tf.isDeleted();
+    return tf != null && tf instanceof vGLTransformFeedback;
   }
 
   isVertexArray(vertexArray: vGLVertexArrayObject | null): GLboolean {
-    return vertexArray != null && vertexArray instanceof vGLVertexArrayObject && !vertexArray.isDeleted();
+    return vertexArray != null && vertexArray instanceof vGLVertexArrayObject;
   }
 
   lineWidth(width: GLfloat): void {
@@ -1335,9 +1541,8 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   shaderSource(shader: GLShader, source: string): void {
-    const shaderSource = shader.compile(this, source);
-
-    this[TransferrableKeys.mutated]('shaderSource', [shader, shaderSource]);
+    this[TransferrableKeys.mutated]('shaderSource', arguments);
+    shader.compile(this, source);
   }
 
   stencilFunc(func: GLenum, ref: GLint, mask: GLuint): void {
@@ -1968,73 +2173,83 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     transfer(this.canvas.ownerDocument as Document, [TransferrableMutationType.OBJECT_MUTATION, fnName, this, args]);
   }
 
-  private _bindBuffer(target: GLenum, buffer: vGLBuffer | null): void {
+  _webglError(errorCode: GLenum, errorName: string, operation: string, message: string): void {
+    this._error = errorCode;
+    console.warn(`WebGL: ${errorName}(${errorCode}): ${operation}: ${message}`);
+  }
+
+  _validateBinding(candidate: TransferrableGLObject | null, validator: Function, operation: string, expectedType: string, index: number): boolean {
+    if (candidate != null) {
+      if (!validator(candidate)) {
+        throw new Error(`Failed to execute '${operation}' on 'WebGL2RenderingContext': parameter ${index} is not of type '${expectedType}'.`);
+      }
+
+      if (candidate.isDeleted()) {
+        // WebGL: INVALID_OPERATION: bindBuffer: attempt to use a deleted object
+        this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', operation, 'attempt to use a deleted object');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private _getBoundBuffer(target: GLenum): vGLBuffer | null {
     switch (target) {
-      case this.ARRAY_BUFFER: {
-        this._buffers.arrayBuffer = buffer;
-        break;
-      }
-      case this.ELEMENT_ARRAY_BUFFER: {
-        this._buffers.elementArrayBuffer = buffer;
-        break;
-      }
-      case this.COPY_READ_BUFFER: {
-        this._buffers.copyReadBuffer = buffer;
-        break;
-      }
-      case this.COPY_WRITE_BUFFER: {
-        this._buffers.copyWriteBuffer = buffer;
-        break;
-      }
-      case this.TRANSFORM_FEEDBACK_BUFFER: {
-        this._buffers.transformFeedbackBuffer = buffer;
-        break;
-      }
-      case this.UNIFORM_BUFFER: {
-        this._buffers.uniformBuffer = buffer;
-        break;
-      }
-      case this.PIXEL_PACK_BUFFER: {
-        this._buffers.pixelPackBuffer = buffer;
-        break;
-      }
-      case this.PIXEL_UNPACK_BUFFER: {
-        this._buffers.pixelUnpackBuffer = buffer;
-        break;
-      }
+      case this.ARRAY_BUFFER:
+      case this.ELEMENT_ARRAY_BUFFER:
+      case this.COPY_READ_BUFFER:
+      case this.COPY_WRITE_BUFFER:
+      case this.TRANSFORM_FEEDBACK_BUFFER:
+      case this.UNIFORM_BUFFER:
+      case this.PIXEL_PACK_BUFFER:
+      case this.PIXEL_UNPACK_BUFFER:
+      case this.FRAMEBUFFER:
+      case this.RENDERBUFFER:
+      case this.DRAW_FRAMEBUFFER:
+      case this.READ_FRAMEBUFFER:
+        return this._buffers[target] || null;
       default:
         throw new Error(`Unexpected target: ${target}`);
     }
   }
 
-  private _getBindedBuffer(target: GLenum): vGLBuffer | null {
-    switch (target) {
-      case this.ARRAY_BUFFER:
-        return this._buffers.arrayBuffer;
-      case this.ELEMENT_ARRAY_BUFFER:
-        return this._buffers.elementArrayBuffer;
-      case this.COPY_READ_BUFFER:
-        return this._buffers.copyReadBuffer;
-      case this.COPY_WRITE_BUFFER:
-        return this._buffers.copyWriteBuffer;
-      case this.TRANSFORM_FEEDBACK_BUFFER:
-        return this._buffers.transformFeedbackBuffer;
-      case this.UNIFORM_BUFFER:
-        return this._buffers.uniformBuffer;
-      case this.PIXEL_PACK_BUFFER:
-        return this._buffers.pixelPackBuffer;
-      case this.PIXEL_UNPACK_BUFFER:
-        return this._buffers.pixelUnpackBuffer;
-      case this.FRAMEBUFFER:
-        return this._buffers.framebuffer;
-      case this.RENDERBUFFER:
-        return this._buffers.renderbuffer;
-      case this.DRAW_FRAMEBUFFER:
-        return this._buffers.drawFramebuffer;
-      case this.READ_FRAMEBUFFER:
-        return this._buffers.readFramebuffer;
-      default:
-        throw new Error(`Unexpected target: ${target}`);
+  _bindBuffer(target: GLenum, buffer: vGLBuffer | null) {
+    const currentBinding = this._buffers[target];
+    if (currentBinding) {
+      if (currentBinding !== buffer) {
+        const unitIdx = currentBinding.bindings.indexOf(target);
+        if (unitIdx >= 0) {
+          currentBinding.bindings.splice(unitIdx, 1);
+        }
+      } else {
+        // TODO: should we handle this case?
+        // console.info(`Buffer already bound to target - ${target}`, buffer, currentBinding);
+        // return false;
+      }
     }
+
+    this._buffers[target] = buffer;
+    if (buffer != null && !buffer.bindings.includes(target)) {
+      buffer.bindings.push(target);
+    }
+  }
+
+  _deleteBuffer(buffer: vGLBuffer): void {
+    buffer.bindings.forEach((target) => {
+      if (this._buffers[target] === buffer) {
+        this._buffers[target] = null;
+      }
+    });
+
+    for (let indexedBuffersKey in this._indexedBuffers) {
+      for (let i = 0; i < this._indexedBuffers[indexedBuffersKey].length; i++) {
+        const bdata = this._indexedBuffers[indexedBuffersKey][i];
+        if (bdata != null && bdata.buffer === buffer) {
+          this._indexedBuffers[indexedBuffersKey][i] = null;
+        }
+      }
+    }
+
+    buffer.delete();
   }
 }

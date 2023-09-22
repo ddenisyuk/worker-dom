@@ -79,20 +79,34 @@ export class vGLVertexArrayObject extends TransferrableGLObject implements WebGL
 }
 
 export class vGLTexture extends TransferrableGLObject implements WebGLTexture {
-  public binding: number = 0;
+  public boundTarget: GLenum | null = null;
+  public texturesUnits: GLenum[] = [];
 
   public constructor(id: number) {
     super(id);
   }
+
+  public delete() {
+    super.delete();
+    this.boundTarget = null;
+    this.texturesUnits = [];
+  }
 }
 
 export class vGLBuffer extends TransferrableGLObject implements WebGLBuffer {
-  public target: GLenum;
+  public bindings: GLenum[] = [];
   public size: GLsizeiptr;
   public usage: GLenum;
 
   public constructor(id: number) {
     super(id);
+  }
+
+  public delete() {
+    super.delete();
+    this.size = 0;
+    this.usage = 0;
+    this.bindings = [];
   }
 }
 
