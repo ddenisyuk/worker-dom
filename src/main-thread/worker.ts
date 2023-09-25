@@ -160,12 +160,12 @@ function findTransferable(object: any): any[] {
     object instanceof WritableStream ||
     object instanceof TransformStream ||
     object instanceof RTCDataChannel ||
-    object instanceof ImageBitmap
+    object instanceof ImageBitmap ||
+    object instanceof VideoFrame ||
+    object instanceof OffscreenCanvas
     // TS unsupported
     // object instanceof WebTransportReceiveStream ||
-    // object instanceof AudioData ||
-    // object instanceof VideoFrame ||
-    // object instanceof OffscreenCanvas
+    // object instanceof AudioData
   ) {
     transferables.push(object);
     return transferables;

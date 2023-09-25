@@ -24,7 +24,7 @@ export const ObjectCreationProcessor: CommandExecutorInterface = (strings, nodeC
         } else if (isGetter(target, functionName)) {
           object = target[functionName];
         } else {
-          object = target[functionName](...args);
+          object = target[functionName].apply(target, args);
         }
 
         objectContext.store(objectId, object);

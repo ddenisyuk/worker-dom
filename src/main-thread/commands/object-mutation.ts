@@ -14,7 +14,7 @@ export const ObjectMutationProcessor: CommandExecutorInterface = (strings, nodeC
         if (isSetter(target, functionName)) {
           target[functionName] = args[0];
         } else {
-          target[functionName](...args);
+          target[functionName].apply(target, args);
         }
       }
     },

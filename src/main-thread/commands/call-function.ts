@@ -48,16 +48,16 @@ export const CallFunctionProcessor: CommandExecutorInterface = (strings, nodes, 
                   args[idx] = errorCallback;
                 }
               }
-              target[functionName](...args);
+              target[functionName].apply(target, args);
             } else {
               // promise
-              Promise.resolve(target[functionName](...args))
+              Promise.resolve(target[functionName].apply(target, args))
                 .then(successCallback)
                 .catch(errorCallback);
             }
           } else {
             try {
-              const value = target[functionName](...args);
+              const value = target[functionName].apply(target, args);
               successCallback(value);
             } catch (reason) {
               errorCallback(reason);

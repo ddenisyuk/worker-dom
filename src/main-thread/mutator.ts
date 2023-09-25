@@ -30,7 +30,7 @@ export class MutatorProcessor {
   private stringContext: StringContext;
   private nodeContext: NodeContext;
   private objectContext: ObjectContext;
-  private mutationQueue: Array<ArrayBuffer> = [];
+  private mutationQueue: Array<Array<ArrayBuffer>> = [];
   private pendingMutations: boolean = false;
   private mutationPumpFunction: MutationPumpFunction;
   private sanitizer: Sanitizer | undefined;
@@ -101,7 +101,7 @@ export class MutatorProcessor {
       this.nodeContext.createNodes(nodes, this.sanitizer);
     }
     if (mutations) {
-      this.mutationQueue.push(...mutations);
+      this.mutationQueue.push(mutations);
       if (!this.pendingMutations) {
         this.pendingMutations = true;
         this.mutationPumpFunction(this.syncFlush, type == MessageType.HYDRATE ? Phase.Hydrating : Phase.Mutating);
@@ -124,6 +124,7 @@ export class MutatorProcessor {
     }
     const disallowedMutations: TransferrableMutationType[] = [];
     this.mutationQueue
+      .flatMap(value => value)
       .map((mutationArrayBuffer) => new BytesStream(mutationArrayBuffer))
       .forEach((bytesStream) => {
         const parameters = deserializeTransferableMessage(bytesStream, this.stringContext, this.nodeContext, this.objectContext);
