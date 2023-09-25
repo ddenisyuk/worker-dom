@@ -48,7 +48,8 @@ export class GenericExtension
     WEBGL_compressed_texture_s3tc_srgb,
     WEBGL_debug_renderer_info,
     WEBGL_depth_texture,
-    EXT_texture_norm16, EXT_texture_compression_bptc {}
+    EXT_texture_norm16,
+    EXT_texture_compression_bptc {}
 
 export class GLVertexArrayObjectOES extends TransferrableGLObject implements WebGLVertexArrayObjectOES {}
 
@@ -65,79 +66,43 @@ export class WEBGLCompressedTextureAstc extends GLConstants implements WEBGL_com
 }
 
 export class WEBGLDrawBuffers extends TransferrableGLExtension implements WEBGL_draw_buffers {
-  readonly COLOR_ATTACHMENT0_WEBGL;
-  readonly COLOR_ATTACHMENT10_WEBGL;
-  readonly COLOR_ATTACHMENT11_WEBGL;
-  readonly COLOR_ATTACHMENT12_WEBGL;
-  readonly COLOR_ATTACHMENT13_WEBGL;
-  readonly COLOR_ATTACHMENT14_WEBGL;
-  readonly COLOR_ATTACHMENT15_WEBGL;
-  readonly COLOR_ATTACHMENT1_WEBGL;
-  readonly COLOR_ATTACHMENT2_WEBGL;
-  readonly COLOR_ATTACHMENT3_WEBGL;
-  readonly COLOR_ATTACHMENT4_WEBGL;
-  readonly COLOR_ATTACHMENT5_WEBGL;
-  readonly COLOR_ATTACHMENT6_WEBGL;
-  readonly COLOR_ATTACHMENT7_WEBGL;
-  readonly COLOR_ATTACHMENT8_WEBGL;
-  readonly COLOR_ATTACHMENT9_WEBGL;
-  readonly DRAW_BUFFER0_WEBGL;
-  readonly DRAW_BUFFER10_WEBGL;
-  readonly DRAW_BUFFER11_WEBGL;
-  readonly DRAW_BUFFER12_WEBGL;
-  readonly DRAW_BUFFER13_WEBGL;
-  readonly DRAW_BUFFER14_WEBGL;
-  readonly DRAW_BUFFER15_WEBGL;
-  readonly DRAW_BUFFER1_WEBGL;
-  readonly DRAW_BUFFER2_WEBGL;
-  readonly DRAW_BUFFER3_WEBGL;
-  readonly DRAW_BUFFER4_WEBGL;
-  readonly DRAW_BUFFER5_WEBGL;
-  readonly DRAW_BUFFER6_WEBGL;
-  readonly DRAW_BUFFER7_WEBGL;
-  readonly DRAW_BUFFER8_WEBGL;
-  readonly DRAW_BUFFER9_WEBGL;
-  readonly MAX_COLOR_ATTACHMENTS_WEBGL;
-  readonly MAX_DRAW_BUFFERS_WEBGL;
+  readonly COLOR_ATTACHMENT0_WEBGL = GLConstants.COLOR_ATTACHMENT0_WEBGL;
+  readonly COLOR_ATTACHMENT10_WEBGL = GLConstants.COLOR_ATTACHMENT10_WEBGL;
+  readonly COLOR_ATTACHMENT11_WEBGL = GLConstants.COLOR_ATTACHMENT11_WEBGL;
+  readonly COLOR_ATTACHMENT12_WEBGL = GLConstants.COLOR_ATTACHMENT12_WEBGL;
+  readonly COLOR_ATTACHMENT13_WEBGL = GLConstants.COLOR_ATTACHMENT13_WEBGL;
+  readonly COLOR_ATTACHMENT14_WEBGL = GLConstants.COLOR_ATTACHMENT14_WEBGL;
+  readonly COLOR_ATTACHMENT15_WEBGL = GLConstants.COLOR_ATTACHMENT15_WEBGL;
+  readonly COLOR_ATTACHMENT1_WEBGL = GLConstants.COLOR_ATTACHMENT1_WEBGL;
+  readonly COLOR_ATTACHMENT2_WEBGL = GLConstants.COLOR_ATTACHMENT2_WEBGL;
+  readonly COLOR_ATTACHMENT3_WEBGL = GLConstants.COLOR_ATTACHMENT3_WEBGL;
+  readonly COLOR_ATTACHMENT4_WEBGL = GLConstants.COLOR_ATTACHMENT4_WEBGL;
+  readonly COLOR_ATTACHMENT5_WEBGL = GLConstants.COLOR_ATTACHMENT5_WEBGL;
+  readonly COLOR_ATTACHMENT6_WEBGL = GLConstants.COLOR_ATTACHMENT6_WEBGL;
+  readonly COLOR_ATTACHMENT7_WEBGL = GLConstants.COLOR_ATTACHMENT7_WEBGL;
+  readonly COLOR_ATTACHMENT8_WEBGL = GLConstants.COLOR_ATTACHMENT8_WEBGL;
+  readonly COLOR_ATTACHMENT9_WEBGL = GLConstants.COLOR_ATTACHMENT9_WEBGL;
+  readonly DRAW_BUFFER0_WEBGL = GLConstants.DRAW_BUFFER0_WEBGL;
+  readonly DRAW_BUFFER10_WEBGL = GLConstants.DRAW_BUFFER10_WEBGL;
+  readonly DRAW_BUFFER11_WEBGL = GLConstants.DRAW_BUFFER11_WEBGL;
+  readonly DRAW_BUFFER12_WEBGL = GLConstants.DRAW_BUFFER12_WEBGL;
+  readonly DRAW_BUFFER13_WEBGL = GLConstants.DRAW_BUFFER13_WEBGL;
+  readonly DRAW_BUFFER14_WEBGL = GLConstants.DRAW_BUFFER14_WEBGL;
+  readonly DRAW_BUFFER15_WEBGL = GLConstants.DRAW_BUFFER15_WEBGL;
+  readonly DRAW_BUFFER1_WEBGL = GLConstants.DRAW_BUFFER1_WEBGL;
+  readonly DRAW_BUFFER2_WEBGL = GLConstants.DRAW_BUFFER2_WEBGL;
+  readonly DRAW_BUFFER3_WEBGL = GLConstants.DRAW_BUFFER3_WEBGL;
+  readonly DRAW_BUFFER4_WEBGL = GLConstants.DRAW_BUFFER4_WEBGL;
+  readonly DRAW_BUFFER5_WEBGL = GLConstants.DRAW_BUFFER5_WEBGL;
+  readonly DRAW_BUFFER6_WEBGL = GLConstants.DRAW_BUFFER6_WEBGL;
+  readonly DRAW_BUFFER7_WEBGL = GLConstants.DRAW_BUFFER7_WEBGL;
+  readonly DRAW_BUFFER8_WEBGL = GLConstants.DRAW_BUFFER8_WEBGL;
+  readonly DRAW_BUFFER9_WEBGL = GLConstants.DRAW_BUFFER9_WEBGL;
+  readonly MAX_COLOR_ATTACHMENTS_WEBGL = GLConstants.MAX_COLOR_ATTACHMENTS_WEBGL;
+  readonly MAX_DRAW_BUFFERS_WEBGL = GLConstants.MAX_DRAW_BUFFERS_WEBGL;
 
   public constructor(id: number, context: WebGLRenderingContextPolyfill) {
     super(id, context);
-    this.COLOR_ATTACHMENT0_WEBGL = context.COLOR_ATTACHMENT0_WEBGL;
-    this.COLOR_ATTACHMENT1_WEBGL = context.COLOR_ATTACHMENT1_WEBGL;
-    this.COLOR_ATTACHMENT2_WEBGL = context.COLOR_ATTACHMENT2_WEBGL;
-    this.COLOR_ATTACHMENT3_WEBGL = context.COLOR_ATTACHMENT3_WEBGL;
-    this.COLOR_ATTACHMENT4_WEBGL = context.COLOR_ATTACHMENT4_WEBGL;
-    this.COLOR_ATTACHMENT5_WEBGL = context.COLOR_ATTACHMENT5_WEBGL;
-    this.COLOR_ATTACHMENT6_WEBGL = context.COLOR_ATTACHMENT6_WEBGL;
-    this.COLOR_ATTACHMENT7_WEBGL = context.COLOR_ATTACHMENT7_WEBGL;
-    this.COLOR_ATTACHMENT8_WEBGL = context.COLOR_ATTACHMENT8_WEBGL;
-    this.COLOR_ATTACHMENT9_WEBGL = context.COLOR_ATTACHMENT9_WEBGL;
-    this.COLOR_ATTACHMENT10_WEBGL = context.COLOR_ATTACHMENT10_WEBGL;
-    this.COLOR_ATTACHMENT11_WEBGL = context.COLOR_ATTACHMENT11_WEBGL;
-    this.COLOR_ATTACHMENT12_WEBGL = context.COLOR_ATTACHMENT12_WEBGL;
-    this.COLOR_ATTACHMENT13_WEBGL = context.COLOR_ATTACHMENT13_WEBGL;
-    this.COLOR_ATTACHMENT14_WEBGL = context.COLOR_ATTACHMENT14_WEBGL;
-    this.COLOR_ATTACHMENT15_WEBGL = context.COLOR_ATTACHMENT15_WEBGL;
-
-    this.DRAW_BUFFER0_WEBGL = context.DRAW_BUFFER0_WEBGL;
-    this.DRAW_BUFFER1_WEBGL = context.DRAW_BUFFER1_WEBGL;
-    this.DRAW_BUFFER2_WEBGL = context.DRAW_BUFFER2_WEBGL;
-    this.DRAW_BUFFER3_WEBGL = context.DRAW_BUFFER3_WEBGL;
-    this.DRAW_BUFFER4_WEBGL = context.DRAW_BUFFER4_WEBGL;
-    this.DRAW_BUFFER5_WEBGL = context.DRAW_BUFFER5_WEBGL;
-    this.DRAW_BUFFER6_WEBGL = context.DRAW_BUFFER6_WEBGL;
-    this.DRAW_BUFFER7_WEBGL = context.DRAW_BUFFER7_WEBGL;
-    this.DRAW_BUFFER8_WEBGL = context.DRAW_BUFFER8_WEBGL;
-    this.DRAW_BUFFER9_WEBGL = context.DRAW_BUFFER9_WEBGL;
-    this.DRAW_BUFFER10_WEBGL = context.DRAW_BUFFER10_WEBGL;
-    this.DRAW_BUFFER11_WEBGL = context.DRAW_BUFFER11_WEBGL;
-    this.DRAW_BUFFER12_WEBGL = context.DRAW_BUFFER12_WEBGL;
-    this.DRAW_BUFFER13_WEBGL = context.DRAW_BUFFER13_WEBGL;
-    this.DRAW_BUFFER14_WEBGL = context.DRAW_BUFFER14_WEBGL;
-    this.DRAW_BUFFER15_WEBGL = context.DRAW_BUFFER15_WEBGL;
-
-    this.MAX_COLOR_ATTACHMENTS_WEBGL = context.MAX_COLOR_ATTACHMENTS_WEBGL;
-    this.MAX_DRAW_BUFFERS_WEBGL = context.MAX_DRAW_BUFFERS_WEBGL;
   }
 
   drawBuffersWEBGL(buffers: GLenum[]): void {
@@ -146,11 +111,10 @@ export class WEBGLDrawBuffers extends TransferrableGLExtension implements WEBGL_
 }
 
 export class ANGLEInstancedArrays extends TransferrableGLExtension implements ANGLE_instanced_arrays {
-  public readonly VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE;
+  public readonly VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE = GLConstants.VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE;
 
   public constructor(id: number, context: WebGLRenderingContextPolyfill) {
     super(id, context);
-    this.VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE = context.VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE;
   }
 
   drawArraysInstancedANGLE(mode: GLenum, first: GLint, count: GLsizei, primcount: GLsizei): void {
@@ -167,17 +131,13 @@ export class ANGLEInstancedArrays extends TransferrableGLExtension implements AN
 }
 
 export class OVRMultiview2 extends TransferrableGLExtension implements OVR_multiview2 {
-  readonly FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR;
-  readonly FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR;
-  readonly MAX_VIEWS_OVR;
-  readonly FRAMEBUFFER_INCOMPLETE_VIEW_TARGETS_OVR;
+  readonly FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR = GLConstants.FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR;
+  readonly FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR = GLConstants.FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR;
+  readonly MAX_VIEWS_OVR = GLConstants.MAX_VIEWS_OVR;
+  readonly FRAMEBUFFER_INCOMPLETE_VIEW_TARGETS_OVR = GLConstants.FRAMEBUFFER_INCOMPLETE_VIEW_TARGETS_OVR;
 
   public constructor(id: number, context: WebGLRenderingContextPolyfill) {
     super(id, context);
-    this.FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR = context.FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR;
-    this.FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR = context.FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR;
-    this.MAX_VIEWS_OVR = context.MAX_VIEWS_OVR;
-    this.FRAMEBUFFER_INCOMPLETE_VIEW_TARGETS_OVR = context.FRAMEBUFFER_INCOMPLETE_VIEW_TARGETS_OVR;
   }
 
   framebufferTextureMultiviewOVR(
@@ -193,11 +153,10 @@ export class OVRMultiview2 extends TransferrableGLExtension implements OVR_multi
 }
 
 export class OESVertexArrayObject extends TransferrableGLExtension implements OES_vertex_array_object {
-  readonly VERTEX_ARRAY_BINDING_OES;
+  readonly VERTEX_ARRAY_BINDING_OES = GLConstants.VERTEX_ARRAY_BINDING_OES;
 
   public constructor(id: number, context: WebGLRenderingContextPolyfill) {
     super(id, context);
-    this.VERTEX_ARRAY_BINDING_OES = context.VERTEX_ARRAY_BINDING_OES;
   }
 
   bindVertexArrayOES(arrayObject: GLVertexArrayObjectOES | null): void {
@@ -232,21 +191,15 @@ export class WEBGLLoseContext extends TransferrableGLExtension implements WEBGL_
 }
 
 export class EXTDisjointTimerQuery extends TransferrableGLExtension /* implements EXT_disjoint_timer_query */ {
-  readonly GPU_DISJOINT_EXT;
-  readonly QUERY_COUNTER_BITS_EXT;
-  readonly QUERY_RESULT_AVAILABLE_EXT;
-  readonly QUERY_RESULT_EXT;
-  readonly TIMESTAMP_EXT;
-  readonly TIME_ELAPSED_EXT;
+  readonly GPU_DISJOINT_EXT = GLConstants.GPU_DISJOINT_EXT;
+  readonly QUERY_COUNTER_BITS_EXT = GLConstants.QUERY_COUNTER_BITS_EXT;
+  readonly QUERY_RESULT_AVAILABLE_EXT = GLConstants.QUERY_RESULT_AVAILABLE_EXT;
+  readonly QUERY_RESULT_EXT = GLConstants.QUERY_RESULT_EXT;
+  readonly TIMESTAMP_EXT = GLConstants.TIMESTAMP_EXT;
+  readonly TIME_ELAPSED_EXT = GLConstants.TIME_ELAPSED_EXT;
 
   public constructor(id: number, context: WebGLRenderingContextPolyfill) {
     super(id, context);
-    this.GPU_DISJOINT_EXT = context.GPU_DISJOINT_EXT;
-    this.QUERY_COUNTER_BITS_EXT = context.QUERY_COUNTER_BITS_EXT;
-    this.QUERY_RESULT_AVAILABLE_EXT = context.QUERY_RESULT_AVAILABLE_EXT;
-    this.QUERY_RESULT_EXT = context.QUERY_RESULT_EXT;
-    this.TIMESTAMP_EXT = context.TIMESTAMP_EXT;
-    this.TIME_ELAPSED_EXT = context.TIME_ELAPSED_EXT;
   }
 
   beginQueryEXT(target: number, query: vGLQuery): void {
