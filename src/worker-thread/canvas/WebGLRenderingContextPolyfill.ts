@@ -399,20 +399,13 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
             return;
           }
           texture.boundTarget = target;
-          if (!texture.texturesUnits.includes(this._activeTexture)) {
-            texture.texturesUnits.push(this._activeTexture);
-          }
-        } else {
-          const currentTexture = this._boundTextures[this._activeTexture][target];
-          if (currentTexture != null) {
-            const unitIdx = currentTexture.texturesUnits.indexOf(this._activeTexture);
-            if (unitIdx >= 0) {
-              currentTexture.texturesUnits.splice(unitIdx, 1);
-              if (currentTexture.texturesUnits.length == 0) {
-                currentTexture.boundTarget = null;
-              }
-            }
-          }
+        }
+
+        const currentTexture = this._boundTextures[this._activeTexture][target];
+        this._boundTextures[this._activeTexture][target] = null;
+
+        if (currentTexture && !this._texHasUsage(currentTexture)) {
+          currentTexture.boundTarget = null;
         }
 
         this[TransferrableKeys.mutated]('bindTexture', arguments);
@@ -421,7 +414,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       }
       default: {
         // WebGL: INVALID_ENUM: bindTexture: invalid target
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindFramebuffer', 'invalid target - ' + target);
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindTexture', 'invalid target - ' + target);
       }
     }
   }
@@ -872,14 +865,16 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('deleteTexture', arguments);
     this.deleteObjectReference(texture.id);
 
-    if (texture.boundTarget != null) {
-      const target = texture.boundTarget;
-      texture.texturesUnits.forEach((textureUnit) => {
-        if (this._boundTextures[textureUnit][target] === texture) {
+    for (const textureUnit in this._boundTextures) {
+      const target2Texture = this._boundTextures[textureUnit];
+      for (const target in target2Texture) {
+        const tex = target2Texture[target];
+        if (tex && tex === texture) {
           this._boundTextures[textureUnit][target] = null;
         }
-      });
+      }
     }
+
     texture.delete();
   }
 
@@ -2173,12 +2168,18 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     transfer(this.canvas.ownerDocument as Document, [TransferrableMutationType.OBJECT_MUTATION, fnName, this, args]);
   }
 
-  _webglError(errorCode: GLenum, errorName: string, operation: string, message: string): void {
+  private _webglError(errorCode: GLenum, errorName: string, operation: string, message: string): void {
     this._error = errorCode;
     console.warn(`WebGL: ${errorName}(${errorCode}): ${operation}: ${message}`);
   }
 
-  _validateBinding(candidate: TransferrableGLObject | null, validator: Function, operation: string, expectedType: string, index: number): boolean {
+  private _validateBinding(
+    candidate: TransferrableGLObject | null,
+    validator: Function,
+    operation: string,
+    expectedType: string,
+    index: number,
+  ): boolean {
     if (candidate != null) {
       if (!validator(candidate)) {
         throw new Error(`Failed to execute '${operation}' on 'WebGL2RenderingContext': parameter ${index} is not of type '${expectedType}'.`);
@@ -2207,13 +2208,13 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       case this.RENDERBUFFER:
       case this.DRAW_FRAMEBUFFER:
       case this.READ_FRAMEBUFFER:
-        return this._buffers[target] || null;
+        return this._buffers[target] ?? null;
       default:
         throw new Error(`Unexpected target: ${target}`);
     }
   }
 
-  _bindBuffer(target: GLenum, buffer: vGLBuffer | null) {
+  private _bindBuffer(target: GLenum, buffer: vGLBuffer | null) {
     const currentBinding = this._buffers[target];
     if (currentBinding) {
       if (currentBinding !== buffer) {
@@ -2234,7 +2235,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
   }
 
-  _deleteBuffer(buffer: vGLBuffer): void {
+  private _deleteBuffer(buffer: vGLBuffer): void {
     buffer.bindings.forEach((target) => {
       if (this._buffers[target] === buffer) {
         this._buffers[target] = null;
@@ -2251,5 +2252,20 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
 
     buffer.delete();
+  }
+
+  private _texHasUsage(texture: vGLTexture | null): boolean {
+    if (texture) {
+      for (const textureUnit in this._boundTextures) {
+        const target2Texture = this._boundTextures[textureUnit];
+        for (const target in target2Texture) {
+          const tex = target2Texture[target];
+          if (tex && tex === texture) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 }

@@ -80,7 +80,6 @@ export class vGLVertexArrayObject extends TransferrableGLObject implements WebGL
 
 export class vGLTexture extends TransferrableGLObject implements WebGLTexture {
   public boundTarget: GLenum | null = null;
-  public texturesUnits: GLenum[] = [];
 
   public constructor(id: number) {
     super(id);
@@ -89,7 +88,6 @@ export class vGLTexture extends TransferrableGLObject implements WebGLTexture {
   public delete() {
     super.delete();
     this.boundTarget = null;
-    this.texturesUnits = [];
   }
 }
 
