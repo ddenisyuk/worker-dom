@@ -37,8 +37,9 @@ export class GLProgram extends TransferrableGLObject implements WebGLProgram {
     this.link(context);
   }
 
-  attachShader(shader: GLShader) {
+  attachShader(shader: GLShader, context: WebGLRenderingContextPolyfill) {
     this.shaders.push(shader);
+    this.link(context);
   }
 
   link(context: WebGLRenderingContextPolyfill) {
@@ -76,7 +77,7 @@ export class GLProgram extends TransferrableGLObject implements WebGLProgram {
   }
 
   getUniform(key: string) {
-    // key = key.trim();
+    key = key.trim();
     return this.uniformsByName[key] || this.uniformsByName[key + '[0]'] || null;
   }
 

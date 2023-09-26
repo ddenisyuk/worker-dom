@@ -16,17 +16,15 @@ export class GLShader extends TransferrableGLObject implements WebGLShader {
     this.source = null;
   }
 
-  compile(context: WebGL2RenderingContext, source: string) {
+  compile(context: WebGL2RenderingContext, source: string): void {
     if (source == null) {
-      return null;
+      return;
     }
 
     this.source = source;
     const glsl = parseGLSL(this.source);
     this.attributes = this._processParams(glsl.attributes, context);
     this.uniforms = this._processParams(glsl.uniforms, context);
-
-    return this.source;
   }
 
   _processParams(params: { [key: string]: any }, context: WebGL2RenderingContext): vGLActiveInfo[] {
