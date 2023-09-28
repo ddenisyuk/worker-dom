@@ -103,23 +103,43 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   private readonly _serializedAsTransferrableObject: number[];
 
   private readonly _supportedExtensions: string[] = [];
-  private readonly _extensions: { [key: string]: any } = {};
-  private readonly _parameters: { [key: number]: any };
-  private readonly _buffers: { [key: GLenum]: vGLBuffer | null } = {};
-  private readonly _indexedBuffers: { [key: GLenum]: Array<{ size: number; offset: number; buffer: vGLBuffer | null } | null> };
-  private readonly _bindings: { [key: string]: TransferrableGLObject | null } = {
+  private readonly _extensions: {
+    [key: string]: any;
+  } = {};
+  private readonly _parameters: {
+    [key: number]: any;
+  };
+  private readonly _buffers: {
+    [key: GLenum]: vGLBuffer | null;
+  } = {};
+  private readonly _indexedBuffers: {
+    [key: GLenum]: Array<{
+      size: number;
+      offset: number;
+      buffer: vGLBuffer | null;
+    } | null>;
+  };
+  private readonly _bindings: {
+    [key: string]: TransferrableGLObject | null;
+  } = {
     program: null,
     vertexArray: null,
     transformFeedback: null,
     sampler: null,
   };
-  private readonly _boundTextures: { [key: GLenum]: { [key: GLenum]: vGLTexture | null } } = {
+  private readonly _boundTextures: {
+    [key: GLenum]: {
+      [key: GLenum]: vGLTexture | null;
+    };
+  } = {
     [this.TEXTURE0]: {},
   };
 
   // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/isEnabled
   // By default, all capabilities except gl.DITHER are disabled.
-  private readonly _capabilities: { [key: GLenum]: boolean } = {
+  private readonly _capabilities: {
+    [key: GLenum]: boolean;
+  } = {
     [this.DITHER]: true,
     [this.BLEND]: false,
     [this.CULL_FACE]: false,
@@ -1260,6 +1280,13 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       case this.READ_FRAMEBUFFER_BINDING: {
         return this._getBoundBuffer(this.READ_FRAMEBUFFER);
       }
+      case this.MAX_TEXTURE_MAX_ANISOTROPY_EXT: {
+        if (!('EXT_texture_filter_anisotropic' in this._extensions)) {
+          // WebGL: INVALID_ENUM: getParameter: invalid parameter name, EXT_texture_filter_anisotropic not enabled
+          this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getParameter', 'invalid parameter name, EXT_texture_filter_anisotropic not enabled');
+        }
+        return null;
+      }
       default:
         if (!Object.values(this).includes(pname)) {
           // WebGL: INVALID_ENUM: getParameter: invalid parameter name
@@ -1352,7 +1379,24 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   getTexParameter(target: GLenum, pname: GLenum): any {
-    throw new Error('NOT IMPLEMENTED');
+    const texture = this._boundTextures[this._activeTexture][target];
+    if (!texture) {
+      // WebGL: INVALID_OPERATION: getTexParameter: no texture bound to target
+      this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', 'getTexParameter', 'no texture bound to target ' + target);
+      return null;
+    }
+    if (pname in texture.parameters) {
+      if (pname === this.TEXTURE_MAX_ANISOTROPY_EXT && !('EXT_texture_filter_anisotropic' in this._extensions)) {
+        // WebGL: INVALID_ENUM: getTexParameter: invalid parameter name, EXT_texture_filter_anisotropic not enabled
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getTexParameter', 'invalid parameter name, EXT_texture_filter_anisotropic not enabled');
+        return null;
+      }
+      return texture.parameters[pname];
+    } else {
+      // WebGL: INVALID_ENUM: getTexParameter: invalid parameter name
+      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getTexParameter', 'invalid parameter name ' + pname);
+      return null;
+    }
   }
 
   getTransformFeedbackVarying(program: GLProgram, index: GLuint): vGLActiveInfo | null {
@@ -1691,11 +1735,15 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   texParameterf(target: GLenum, pname: GLenum, param: GLfloat): void {
-    this[TransferrableKeys.mutated]('texParameterf', arguments);
+    if (this._texParameter(target, pname, param, 'texParameterf')) {
+      this[TransferrableKeys.mutated]('texParameterf', arguments);
+    }
   }
 
   texParameteri(target: GLenum, pname: GLenum, param: GLint): void {
-    this[TransferrableKeys.mutated]('texParameteri', arguments);
+    if (this._texParameter(target, pname, param, 'texParameteri')) {
+      this[TransferrableKeys.mutated]('texParameteri', arguments);
+    }
   }
 
   texStorage2D(target: GLenum, levels: GLsizei, internalformat: GLenum, width: GLsizei, height: GLsizei): void {
@@ -2267,5 +2315,68 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       }
     }
     return false;
+  }
+
+  private _texParameter(target: GLenum, pname: GLenum, param: GLint | GLfloat, operation: string): boolean {
+    const texture = this._boundTextures[this._activeTexture][target];
+    if (!texture) {
+      // WebGL: INVALID_OPERATION: texParameter: no texture bound to target
+      this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', operation, 'no texture bound to target ' + target);
+      return false;
+    }
+
+    const parameter = texture.parameters[pname];
+
+    if (!parameter) {
+      // WebGL: INVALID_ENUM: texParameterf: invalid parameter name
+      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', operation, 'invalid parameter name ' + pname);
+      return false;
+    }
+
+    if (parameter.readonly) {
+      return false; // Parameter marked as read only, skip
+    }
+
+    switch (pname) {
+      case this.TEXTURE_MAG_FILTER:
+      case this.TEXTURE_MIN_FILTER:
+      case this.TEXTURE_WRAP_S:
+      case this.TEXTURE_WRAP_T:
+      case this.TEXTURE_WRAP_R:
+      case this.TEXTURE_COMPARE_FUNC:
+      case this.TEXTURE_COMPARE_MODE: {
+        if (!parameter.allowed.includes(param)) {
+          this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', operation, 'Texture param not recognized. Invalid parameter ' + param);
+          return false;
+        }
+        break;
+      }
+      case this.TEXTURE_BASE_LEVEL:
+      case this.TEXTURE_MAX_LEVEL: {
+        if (param < 0) {
+          // GL_INVALID_VALUE: Level of detail outside of range.
+          // GL_INVALID_VALUE: Base level must be at least 0.
+          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', operation, 'Level must be at least 0. Value: ' + param);
+          return false;
+        }
+        break;
+      }
+      case this.TEXTURE_MAX_ANISOTROPY_EXT: {
+        if (!('EXT_texture_filter_anisotropic' in this._extensions)) {
+          // WebGL: INVALID_ENUM: texParameter: invalid parameter, EXT_texture_filter_anisotropic not enabled
+          this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', operation, 'invalid parameter, EXT_texture_filter_anisotropic not enabled');
+          return false;
+        }
+        if (param <= 0) {
+          // GL_INVALID_VALUE: Parameter outside of bounds.
+          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', operation, 'Parameter outside of bounds. Value: ' + param);
+          return false;
+        }
+        break;
+      }
+    }
+
+    parameter.value = param;
+    return true;
   }
 }
