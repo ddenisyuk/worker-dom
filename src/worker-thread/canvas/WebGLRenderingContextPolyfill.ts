@@ -197,8 +197,8 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       });
 
     this._indexedBuffers = {
-      [this.TRANSFORM_FEEDBACK_BUFFER]: new Array(this.getParameter(this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)),
-      [this.UNIFORM_BUFFER]: new Array(this.getParameter(this.MAX_UNIFORM_BUFFER_BINDINGS)),
+      [this.TRANSFORM_FEEDBACK_BUFFER]: new Array(this._parameters[this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS] || 12),
+      [this.UNIFORM_BUFFER]: new Array(this._parameters[this.MAX_UNIFORM_BUFFER_BINDINGS] || 12),
     };
   }
 
@@ -1180,22 +1180,46 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
     switch (target) {
       case this.TRANSFORM_FEEDBACK_BUFFER_BINDING: {
-        return this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index]?.buffer || null;
+        const buffer = this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index];
+        if (buffer) {
+          return buffer.buffer;
+        }
+        return null;
       }
       case this.TRANSFORM_FEEDBACK_BUFFER_SIZE: {
-        return this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index]?.size || 0;
+        const buffer = this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index];
+        if (buffer) {
+          return buffer.size;
+        }
+        return 0;
       }
       case this.TRANSFORM_FEEDBACK_BUFFER_START: {
-        return this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index]?.offset || 0;
+        const buffer = this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index];
+        if (buffer) {
+          return buffer.offset;
+        }
+        return 0;
       }
       case this.UNIFORM_BUFFER_BINDING: {
-        return this._indexedBuffers[this.UNIFORM_BUFFER][index]?.buffer || null;
+        const buffer = this._indexedBuffers[this.UNIFORM_BUFFER][index];
+        if (buffer) {
+          return buffer.buffer;
+        }
+        return null;
       }
       case this.UNIFORM_BUFFER_SIZE: {
-        return this._indexedBuffers[this.UNIFORM_BUFFER][index]?.size || 0;
+        const buffer = this._indexedBuffers[this.UNIFORM_BUFFER][index];
+        if (buffer) {
+          return buffer.size;
+        }
+        return 0;
       }
       case this.UNIFORM_BUFFER_START: {
-        return this._indexedBuffers[this.UNIFORM_BUFFER][index]?.offset || 0;
+        const buffer = this._indexedBuffers[this.UNIFORM_BUFFER][index];
+        if (buffer) {
+          return buffer.offset;
+        }
+        return 0;
       }
       default: {
         // TODO: not implemented for OES_draw_buffers_indexed
@@ -2256,7 +2280,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       case this.RENDERBUFFER:
       case this.DRAW_FRAMEBUFFER:
       case this.READ_FRAMEBUFFER:
-        return this._buffers[target] ?? null;
+        return this._buffers[target] || null;
       default:
         throw new Error(`Unexpected target: ${target}`);
     }
