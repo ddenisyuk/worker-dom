@@ -16,6 +16,7 @@ export type HydrateFunction = (
       extensions: string[] | null;
       attributes: WebGLContextAttributes | null;
       parameters: { [key: number]: any } | null;
+      shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } };
     } | null;
   },
   location: { [type: string]: any },

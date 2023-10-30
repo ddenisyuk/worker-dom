@@ -153,6 +153,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   };
 
   private _contextAttributes: WebGLContextAttributes | null = null;
+  private _shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } } = {};
   private _activeTexture: GLenum = this.TEXTURE0;
   private _error: GLenum = this.NO_ERROR;
 
@@ -195,6 +196,8 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
             console.warn(`Failed to get WebGL parameter ${parameter}`, reason);
           });
       });
+
+    this._shaderPrecisionFormat = options.shaderPrecisionFormat;
 
     this._indexedBuffers = {
       [this.TRANSFORM_FEEDBACK_BUFFER]: new Array(this._parameters[this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS] || 12),
@@ -1030,6 +1033,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   getActiveUniformBlockName(program: GLProgram, uniformBlockIndex: GLuint): string | null {
+    // program.uniformsByLocation[uniformBlockIndex].name ??
     throw new Error('NOT YET IMPLEMENTED');
   }
 
@@ -1058,6 +1062,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   getBufferParameter(target: GLenum, pname: GLenum): any {
     const buffer = this._getBoundBuffer(target);
     if (buffer === null) {
+      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getBufferParameter', 'invalid target ' + target);
       return null;
     }
     // see #bufferData
@@ -1069,8 +1074,10 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       case this.BUFFER_USAGE: {
         return buffer.usage;
       }
-      default:
-        throw new Error(`Unexpected target: ${pname}`);
+      default: {
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getBufferParameter', 'invalid pname ' + pname);
+        return null;
+      }
     }
   }
 
@@ -1237,6 +1244,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   getInternalformatParameter(target: GLenum, internalformat: GLenum, pname: GLenum): any {
+    // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glGetInternalformativ.xhtml
     throw new Error('NOT IMPLEMENTED');
   }
 
@@ -1370,6 +1378,11 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   getShaderParameter(shader: GLShader, pname: GLenum): any {
+    if (!shader) {
+      this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', 'getShaderParameter', 'invalid shader');
+      return null;
+    }
+
     switch (pname) {
       case this.SHADER_TYPE:
         return shader.type;
@@ -1379,15 +1392,43 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
         // optimistically return success; client will abort on an actual error. we assume an error-free async workflow
         return true;
       }
-      default:
-        throw new Error(`Unexpected getShaderParameter: ${pname}`);
+      default: {
+        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getShaderParameter', 'invalid pname - ' + pname);
+        return null;
+      }
     }
   }
 
   getShaderPrecisionFormat(shadertype: GLenum, precisiontype: GLenum): WebGLShaderPrecisionFormat | null {
     // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/getShaderPrecisionFormat
-    // looks like can be implemented
-    throw new Error('NOT YET IMPLEMENTED');
+    if (shadertype != this.FRAGMENT_SHADER && shadertype != this.VERTEX_SHADER) {
+      // WebGL: INVALID_ENUM: getShaderPrecisionFormat: invalid shadertype
+      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getShaderPrecisionFormat', 'invalid shadertype - ' + shadertype);
+      return null;
+    }
+
+    if (
+      this.LOW_FLOAT != precisiontype &&
+      this.MEDIUM_FLOAT != precisiontype &&
+      this.HIGH_FLOAT != precisiontype &&
+      this.LOW_INT != precisiontype &&
+      this.MEDIUM_INT != precisiontype &&
+      this.HIGH_INT != precisiontype
+    ) {
+      // WebGL: INVALID_ENUM: getShaderPrecisionFormat: invalid precisiontype
+      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getShaderPrecisionFormat', 'invalid precisiontype - ' + precisiontype);
+      return null;
+    }
+
+    if (this._shaderPrecisionFormat[shadertype]) {
+      const format = this._shaderPrecisionFormat[shadertype][precisiontype];
+      if (format) {
+        return format;
+      }
+    }
+
+    this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', 'getShaderPrecisionFormat', "shader compiler isn't supported");
+    return null;
   }
 
   getShaderSource(shader: GLShader): string | null {
@@ -1399,7 +1440,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   getSyncParameter(sync: vGLSync, pname: GLenum): any {
-    throw new Error('NOT IMPLEMENTED');
+    throw new Error('NOT YET IMPLEMENTED');
   }
 
   getTexParameter(target: GLenum, pname: GLenum): any {

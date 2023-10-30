@@ -212,6 +212,7 @@ function getWebGLMetaData(): any {
       extensions: string[] | null;
       attributes: WebGLContextAttributes | null;
       parameters: { [key: number]: any } | null;
+      shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } }
     } | null;
   } = {};
 
@@ -220,10 +221,12 @@ function getWebGLMetaData(): any {
       extensions: string[] | null;
       attributes: WebGLContextAttributes | null;
       parameters: { [key: number]: any } | null;
+      shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } };
     } = {
       extensions: null,
       attributes: null,
       parameters: null,
+      shaderPrecisionFormat: {},
     };
 
     try {
@@ -302,6 +305,16 @@ function getWebGLMetaData(): any {
           });
 
         contextMeta.parameters = parameters;
+
+        // shaderPrecisionFormat
+        [context.FRAGMENT_SHADER, context.VERTEX_SHADER].forEach((shaderType) => {
+          contextMeta.shaderPrecisionFormat[shaderType] = contextMeta.shaderPrecisionFormat[shaderType] || {};
+          [context.LOW_FLOAT, context.MEDIUM_FLOAT, context.HIGH_FLOAT, context.LOW_INT, context.MEDIUM_INT, context.HIGH_INT].forEach(
+            (precisionType) => {
+              contextMeta.shaderPrecisionFormat[shaderType][precisionType] = context.getShaderPrecisionFormat(shaderType, precisionType);
+            },
+          );
+        });
 
         result[type] = contextMeta;
       } else {
