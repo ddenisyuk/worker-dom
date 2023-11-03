@@ -43,7 +43,6 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   public readonly canvas: HTMLCanvasElement | any;
   public readonly drawingBufferHeight: GLsizei;
   public readonly drawingBufferWidth: GLsizei;
-  public readonly drawingBufferColorSpace: PredefinedColorSpace = 'srgb';
 
   private readonly requiredParams: number[] = [
     this.VERSION,
@@ -152,6 +151,11 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     [this.RASTERIZER_DISCARD]: false,
   };
 
+  // @ts-ignore
+  // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/unpackColorSpace
+  private _unpackColorSpace: PredefinedColorSpace = 'srgb';
+  private _drawingBufferColorSpace: PredefinedColorSpace = 'srgb';
+
   private _contextAttributes: WebGLContextAttributes | null = null;
   private _shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } } = {};
   private _activeTexture: GLenum = this.TEXTURE0;
@@ -198,11 +202,35 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       });
 
     this._shaderPrecisionFormat = options.shaderPrecisionFormat;
+    this._drawingBufferColorSpace = options.drawingBufferColorSpace;
+    this._unpackColorSpace = options.unpackColorSpace;
 
     this._indexedBuffers = {
       [this.TRANSFORM_FEEDBACK_BUFFER]: new Array(this._parameters[this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS] || 12),
       [this.UNIFORM_BUFFER]: new Array(this._parameters[this.MAX_UNIFORM_BUFFER_BINDINGS] || 12),
     };
+  }
+
+  get drawingBufferColorSpace(): PredefinedColorSpace {
+    return this._drawingBufferColorSpace;
+  }
+
+  set drawingBufferColorSpace(value: PredefinedColorSpace) {
+    if (this._drawingBufferColorSpace != value) {
+      this._drawingBufferColorSpace = value;
+      transfer(this.canvas.ownerDocument as Document, [TransferrableMutationType.PROPERTIES, this, 'drawingBufferColorSpace', value]);
+    }
+  }
+
+  get unpackColorSpace(): PredefinedColorSpace {
+    return this._unpackColorSpace;
+  }
+
+  set unpackColorSpace(value: PredefinedColorSpace) {
+    if (this._unpackColorSpace != value) {
+      this._unpackColorSpace = value;
+      transfer(this.canvas.ownerDocument as Document, [TransferrableMutationType.PROPERTIES, this, 'unpackColorSpace', value]);
+    }
   }
 
   /**
@@ -302,7 +330,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
     this[TransferrableKeys.mutated]('bindBufferBase', arguments);
     this._bindBuffer(target, buffer);
-    this._indexedBuffers[target][index] = { size: 0, offset: 0, buffer: buffer };
+    this._indexedBuffers[target][index] = { size: 0, offset: 0, buffer };
   }
 
   bindBufferRange(target: GLenum, index: GLuint, buffer: vGLBuffer | null, offset: GLintptr, size: GLsizeiptr): void {
@@ -1427,7 +1455,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       }
     }
 
-    this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', 'getShaderPrecisionFormat', "shader compiler isn't supported");
+    this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', 'getShaderPrecisionFormat', 'shader compiler is not supported');
     return null;
   }
 
@@ -2291,11 +2319,11 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     validator: Function,
     operation: string,
     expectedType: string,
-    index: number,
+    parameterIndex: number,
   ): boolean {
     if (candidate != null) {
       if (!validator(candidate)) {
-        throw new Error(`Failed to execute '${operation}' on 'WebGL2RenderingContext': parameter ${index} is not of type '${expectedType}'.`);
+        throw new Error(`Failed to execute '${operation}' on 'WebGL2RenderingContext': parameter ${parameterIndex} is not of type '${expectedType}'.`);
       }
 
       if (candidate.isDeleted()) {
@@ -2355,7 +2383,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       }
     });
 
-    for (let indexedBuffersKey in this._indexedBuffers) {
+    for (const indexedBuffersKey in this._indexedBuffers) {
       for (let i = 0; i < this._indexedBuffers[indexedBuffersKey].length; i++) {
         const bdata = this._indexedBuffers[indexedBuffersKey][i];
         if (bdata != null && bdata.buffer === buffer) {

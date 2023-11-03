@@ -8,6 +8,7 @@ import { HTMLCanvasElement } from './dom/HTMLCanvasElement';
 import { History } from './dom/History';
 import { HTMLElement } from './dom/HTMLElement';
 import { appendGlobalEventProperties } from './event-subscription/EventTarget';
+import { WebGLOptions } from './canvas/WebGLOptions';
 
 export function initialize(
   document: Document,
@@ -19,11 +20,7 @@ export function initialize(
   localStorageInit: WorkerStorageInit,
   sessionStorageInit: WorkerStorageInit,
   webGLInfo: {
-    [type: string]: {
-      extensions: string[] | null;
-      attributes: WebGLContextAttributes | null;
-      parameters: { [key: number]: any } | null;
-    } | null;
+    [type: string]: WebGLOptions | null;
   },
   location: { [type: string]: any },
 ): void {

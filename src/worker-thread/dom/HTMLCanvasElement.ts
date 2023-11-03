@@ -5,15 +5,11 @@ import { CanvasRenderingContext2DShim } from '../canvas/CanvasRenderingContext2D
 import { WebGLRenderingContextPolyfill } from '../canvas/WebGLRenderingContextPolyfill';
 import { Document } from './Document';
 import { createObjectReference } from '../object-reference';
+import { WebGLOptions } from '../canvas/WebGLOptions';
 
 export class HTMLCanvasElement extends HTMLElement {
   public static webGLInfo: {
-    [contextType: string]: {
-      extensions: string[] | null;
-      attributes: WebGLContextAttributes | null;
-      parameters: { [key: number]: any } | null;
-      shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } };
-    } | null;
+    [contextType: string]: WebGLOptions | null;
   } = {};
 
   private context2d: CanvasRenderingContext2DShim<HTMLCanvasElement>;

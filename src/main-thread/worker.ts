@@ -12,9 +12,9 @@ import { IframeWorker } from './iframe-worker';
 export type StorageInit =
   | { storage: Storage | Promise<StorageValue>; errorMsg: null }
   | {
-      storage: null;
-      errorMsg: string;
-    };
+  storage: null;
+  errorMsg: string;
+};
 
 export class WorkerContext {
   private [TransferrableKeys.worker]: Worker | IframeWorker;
@@ -212,7 +212,9 @@ function getWebGLMetaData(): any {
       extensions: string[] | null;
       attributes: WebGLContextAttributes | null;
       parameters: { [key: number]: any } | null;
-      shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } }
+      shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } };
+      drawingBufferColorSpace: PredefinedColorSpace;
+      unpackColorSpace: PredefinedColorSpace;
     } | null;
   } = {};
 
@@ -222,11 +224,15 @@ function getWebGLMetaData(): any {
       attributes: WebGLContextAttributes | null;
       parameters: { [key: number]: any } | null;
       shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } };
+      drawingBufferColorSpace: PredefinedColorSpace;
+      unpackColorSpace: PredefinedColorSpace;
     } = {
       extensions: null,
       attributes: null,
       parameters: null,
       shaderPrecisionFormat: {},
+      drawingBufferColorSpace: 'srgb',
+      unpackColorSpace: 'srgb',
     };
 
     try {
@@ -288,6 +294,9 @@ function getWebGLMetaData(): any {
           context.MAX_ELEMENT_INDEX,
           context.MAX_SERVER_WAIT_TIMEOUT,
         ];
+
+        contextMeta.drawingBufferColorSpace = context.drawingBufferColorSpace;
+        contextMeta.unpackColorSpace = context.unpackColorSpace;
 
         contextMeta.attributes = context.getContextAttributes();
         contextMeta.extensions = context.getSupportedExtensions();
