@@ -48,6 +48,8 @@ function deserializeNext(buffer: BytesStream, stringContext: StringContext, node
       return buffer.readFloat64();
     case TransferrableObjectType.String:
       return stringContext.get(buffer.readUint16());
+    case TransferrableObjectType.EncodedString:
+      return buffer.readString();
     case TransferrableObjectType.BooleanTrue:
       return true;
     case TransferrableObjectType.BooleanFalse:

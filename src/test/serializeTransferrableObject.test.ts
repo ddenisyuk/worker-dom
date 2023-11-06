@@ -1,6 +1,6 @@
 import anyTest, { TestInterface } from 'ava';
 import * as sinon from 'sinon';
-import { estimateSizeInBytes, serializeTransferableMessage } from '../worker-thread/serializeTransferrableObject';
+import { estimateSizeInBytes, serializeTransferableMessage, STRING_MAX_LENGTH_TO_CACHE } from '../worker-thread/serializeTransferrableObject';
 import { TransferrableObjectType } from '../transfer/TransferrableMutation';
 import { store } from '../worker-thread/strings';
 import { CanvasGradient } from '../worker-thread/canvas/CanvasGradient';
@@ -31,7 +31,7 @@ test('Serializes Floats', (t) => {
   t.deepEqual(serialized.buffer, expected.buffer);
 });
 
-test('Serializes Strings', (t) => {
+test('Serializes Cacheable Strings', (t) => {
   const serialized = serializeTransferableMessage(['hello']);
 
   const expected = new BytesStream(estimateSizeInBytes(['hello']));
@@ -41,6 +41,31 @@ test('Serializes Strings', (t) => {
 
   t.deepEqual(serialized.buffer, expected.buffer);
 });
+
+test('Serializes non-Cacheable Strings', (t) => {
+  const strArr = [];
+
+  for (let i = 0; i < STRING_MAX_LENGTH_TO_CACHE + 10; i++) {
+    strArr.push(i);
+  }
+  const str = strArr.join("");
+
+  const serialized = serializeTransferableMessage([str]);
+
+  const expected = new BytesStream(estimateSizeInBytes([str]));
+  expected.appendUint32(1); // parameters count
+  expected.appendUint8(TransferrableObjectType.EncodedString);
+  expected.appendString(str, str.length * 2 + 5);
+
+  t.deepEqual(serialized.buffer, expected.buffer);
+
+  const readStream = new BytesStream(serialized.buffer);
+
+  t.deepEqual(readStream.readUint32(), 1); // parameters count
+  t.deepEqual(readStream.readUint8(), TransferrableObjectType.EncodedString);
+  t.deepEqual(readStream.readString(), str); // deserialized string to initial
+});
+
 
 test('Serializes Arrays', (t) => {
   const serialized = serializeTransferableMessage([[1, -20000, 3000000000]]);

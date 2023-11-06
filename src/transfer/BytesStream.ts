@@ -1,3 +1,7 @@
+const TEXT_ENCODER = new TextEncoder();
+const TEXT_DECODER = new TextDecoder(TEXT_ENCODER.encoding);
+const ENCODE_INTO_SUPPORTED = 'encodeInto' in TEXT_ENCODER;
+
 export class BytesStream {
   private _buffer: ArrayBuffer;
   private _dataView: DataView;
@@ -149,12 +153,41 @@ export class BytesStream {
     return array.buffer;
   }
 
+  public appendString(value: string, expectedByteLength: number): void {
+    if (ENCODE_INTO_SUPPORTED) { // https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder/encodeInto
+      this.allocate(expectedByteLength);
+
+      const begin = this._offset + 4; // 4 bytes for length
+
+      const encodeResult = TEXT_ENCODER.encodeInto(value, this._uint8Array.subarray(begin, expectedByteLength));
+      this.appendUint32(encodeResult.written);
+      this._offset += encodeResult.written;
+    } else {
+      // @ts-ignore
+      const encodedString: Uint8Array = TEXT_ENCODER.encode(value);
+      this.appendTypedArray(encodedString);
+    }
+  }
+
+  public readString(): string {
+    let array;
+
+    if (ENCODE_INTO_SUPPORTED) {
+      const length = this.readUint32();
+      array = this._uint8Array.subarray(this._offset, this._offset + length);
+      this._offset += array.byteLength;
+    } else {
+      array = this.readTypedArray(Uint8Array);
+    }
+
+    return TEXT_DECODER.decode(array, { stream: false });
+  }
+
   public appendTypedArray(
-    array: Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array,
+    array: Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array,
   ): void {
     this.appendUint32(array.length);
-    const size = array.BYTES_PER_ELEMENT;
-    this._offset += size - (this._offset % size);
+    this._offset += this.getOffsetShift(array.BYTES_PER_ELEMENT);
     this.allocate(array.byteLength);
 
     if (array instanceof Uint8Array) {
@@ -175,13 +208,22 @@ export class BytesStream {
       | typeof Int32Array
       | typeof Uint32Array
       | typeof Float32Array
-      | typeof Float64Array,
-  ): Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array {
+      | typeof Float64Array
+      | typeof BigInt64Array
+      | typeof BigUint64Array,
+  ): Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array {
     const length = this.readUint32();
-    this._offset += type.BYTES_PER_ELEMENT - (this._offset % type.BYTES_PER_ELEMENT);
+    this._offset += this.getOffsetShift(type.BYTES_PER_ELEMENT);
     const array = new type(this._buffer, this._offset, length);
     this._offset += array.byteLength;
     return array;
+  }
+
+  private getOffsetShift(bytesPerElement: number) {
+    if (bytesPerElement > 1) {
+      return bytesPerElement - (this._offset % bytesPerElement);
+    }
+    return 0;
   }
 
   private appendBigInt(data: bigint, bytes: number, signed = true): void {
