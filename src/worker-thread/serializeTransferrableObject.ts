@@ -4,6 +4,7 @@ import { Serializable, TransferrableObject } from './worker-thread';
 import { TransferrableKeys } from '../transfer/TransferrableKeys';
 import { BytesStream } from '../transfer/BytesStream';
 
+export const STRING_MAX_LENGTH_TO_CACHE = 100; // TODO: Define most efficient value
 /**
  * Serializes arguments into a Uint16 compatible format.
  *
@@ -54,8 +55,13 @@ function serializeObject(arg: any, stream: BytesStream) {
   }
 
   if (argType === 'string') {
-    stream.appendUint8(TransferrableObjectType.String);
-    stream.appendUint16(store(arg));
+    if (arg.length > STRING_MAX_LENGTH_TO_CACHE) {
+      stream.appendUint8(TransferrableObjectType.EncodedString);
+      stream.appendString(arg, encodedStringSize(arg));
+    } else {
+      stream.appendUint8(TransferrableObjectType.String);
+      stream.appendUint16(store(arg));
+    }
     return;
   }
 
@@ -120,6 +126,16 @@ function serializeObject(arg: any, stream: BytesStream) {
       stream.appendTypedArray(arg);
       return;
     }
+    if (arg instanceof BigInt64Array) {
+      stream.appendUint8(TransferrableObjectType.Float64Array);
+      stream.appendTypedArray(arg);
+      return;
+    }
+    if (arg instanceof BigUint64Array) {
+      stream.appendUint8(TransferrableObjectType.Float64Array);
+      stream.appendTypedArray(arg);
+      return;
+    }
   }
 
   if (arg instanceof ArrayBuffer) {
@@ -179,7 +195,11 @@ function estimateObjectSizeInBytes(obj: any) {
   }
 
   if (argType === 'string') {
-    size += Uint16Array.BYTES_PER_ELEMENT;
+    if (obj.length > STRING_MAX_LENGTH_TO_CACHE) {
+      size += encodedStringSize(obj);
+    } else {
+      size += Uint16Array.BYTES_PER_ELEMENT; // id in cache
+    }
     return size;
   }
 
@@ -365,4 +385,11 @@ function isArguments(type: string, arg: any): boolean {
   } catch (e) {
     return false;
   }
+}
+
+function encodedStringSize(str: string) {
+  // UTF-8 is based on 8-bit code units. Each character is encoded as 1 to 4 bytes.
+  // https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder/encodeInto#buffer_sizing
+  // ... optimistic approach might be to allocate s.length * 2 + 5 bytes, and perform reallocation in the rare circumstance that the optimistic prediction was wrong.
+  return str.length * 2 + 5;
 }
