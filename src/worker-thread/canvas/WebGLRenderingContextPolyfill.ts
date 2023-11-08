@@ -160,50 +160,29 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   private _shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } } = {};
   private _activeTexture: GLenum = this.TEXTURE0;
   private _error: GLenum = this.NO_ERROR;
+  private _contextLost: boolean = false;
 
   constructor(id: number, canvas: HTMLCanvasElement, contextAttributes: WebGLContextAttributes | undefined, options?: WebGLOptions | null) {
     super();
+    options = options || ({} as WebGLOptions);
+
     this.id = id;
     this._serializedAsTransferrableObject = [TransferrableObjectType.TransferObject, this.id];
-    this.canvas = canvas;
 
+    this.canvas = canvas;
     this.drawingBufferHeight = canvas.height;
     this.drawingBufferWidth = canvas.width;
 
-    if (!contextAttributes) {
-      callFunction(this.canvas.ownerDocument as Document, this, 'getContextAttributes', [])
-        .then((result) => (this._contextAttributes = result))
-        .catch((reason) => {
-          console.warn('Failed to get WebGL context attributes', reason);
-        });
-    } else {
-      this._contextAttributes = contextAttributes;
-    }
-
-    options = options || ({} as WebGLOptions);
     this._supportedExtensions = options.extensions || [];
-    if (this._supportedExtensions.length == 0) {
-      callFunction(this.canvas.ownerDocument as Document, this, 'getSupportedExtensions', [])
-        .then((result) => this._supportedExtensions.push(...result))
-        .catch((reason) => {
-          console.warn('Failed to get WebGL supported extensions', reason);
-        });
-    }
-
     this._parameters = options.parameters || {};
-    this.requiredParams
-      .filter((value) => !(value in this._parameters))
-      .forEach((parameter) => {
-        callFunction(this.canvas.ownerDocument as Document, this, 'getParameter', [parameter])
-          .then((result) => (this._parameters[parameter] = result))
-          .catch((reason) => {
-            console.warn(`Failed to get WebGL parameter ${parameter}`, reason);
-          });
-      });
-
     this._shaderPrecisionFormat = options.shaderPrecisionFormat;
     this._drawingBufferColorSpace = options.drawingBufferColorSpace;
     this._unpackColorSpace = options.unpackColorSpace;
+
+    this.initializeContextLostHandlers();
+    this.initializeContextAttributes(contextAttributes);
+    this.initializeSupportedExtensions();
+    this.initializeParameters();
 
     this._indexedBuffers = {
       [this.TRANSFORM_FEEDBACK_BUFFER]: new Array(this._parameters[this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS] || 12),
@@ -1556,7 +1535,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   isContextLost(): boolean {
-    return false;
+    return this._contextLost;
   }
 
   isEnabled(cap: GLenum): GLboolean {
@@ -2471,5 +2450,55 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
     parameter.value = param;
     return true;
+  }
+
+  private initializeContextLostHandlers() {
+    const context = this;
+    this.canvas.addEventListener('webglcontextlost', () => {
+      // TODO: Should polyfill ignore all operations in case context is lost?
+      context._contextLost = true;
+      context._webglError(context.CONTEXT_LOST_WEBGL, 'CONTEXT_LOST_WEBGL', '', 'CONTEXT_LOST_WEBGL');
+    });
+
+    this.canvas.addEventListener('webglcontextrestored', () => {
+      context._contextLost = false;
+      if (context._error == context.CONTEXT_LOST_WEBGL) {
+        context._error = context.NO_ERROR;
+      }
+    });
+  }
+
+  private initializeParameters() {
+    this.requiredParams
+        .filter((value) => !(value in this._parameters))
+        .forEach((parameter) => {
+          callFunction(this.canvas.ownerDocument as Document, this, 'getParameter', [parameter])
+              .then((result) => (this._parameters[parameter] = result))
+              .catch((reason) => {
+                console.warn(`Failed to get WebGL parameter ${parameter}`, reason);
+              });
+        });
+  }
+
+  private initializeSupportedExtensions() {
+    if (this._supportedExtensions.length == 0) {
+      callFunction(this.canvas.ownerDocument as Document, this, 'getSupportedExtensions', [])
+          .then((result) => this._supportedExtensions.push(...result))
+          .catch((reason) => {
+            console.warn('Failed to get WebGL supported extensions', reason);
+          });
+    }
+  }
+
+  private initializeContextAttributes(contextAttributes: WebGLContextAttributes | undefined) {
+    if (!contextAttributes) {
+      callFunction(this.canvas.ownerDocument as Document, this, 'getContextAttributes', [])
+          .then((result) => (this._contextAttributes = result))
+          .catch((reason) => {
+            console.warn('Failed to get WebGL context attributes', reason);
+          });
+    } else {
+      this._contextAttributes = contextAttributes;
+    }
   }
 }
