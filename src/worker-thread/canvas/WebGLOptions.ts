@@ -5,4 +5,5 @@ export interface WebGLOptions {
   shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } };
   drawingBufferColorSpace: PredefinedColorSpace;
   unpackColorSpace: PredefinedColorSpace;
+  internalformatParameter: { [key: number]: number[] };
 }

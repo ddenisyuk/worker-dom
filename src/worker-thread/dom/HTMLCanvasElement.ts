@@ -2,7 +2,7 @@ import { HTMLElement } from './HTMLElement';
 import { registerSubclass } from './Element';
 import { reflectProperties, registerListenableProperties } from './enhanceElement';
 import { CanvasRenderingContext2DShim } from '../canvas/CanvasRenderingContext2D';
-import { WebGLRenderingContextPolyfill } from '../canvas/WebGLRenderingContextPolyfill';
+import { CONTEXT_TYPE, WebGLRenderingContextPolyfill } from '../canvas/WebGLRenderingContextPolyfill';
 import { Document } from './Document';
 import { createObjectReference } from '../object-reference';
 import { WebGLOptions } from '../canvas/WebGLOptions';
@@ -24,7 +24,6 @@ export class HTMLCanvasElement extends HTMLElement {
         }
         return this.context2d;
       case 'webgl':
-      case 'experimental-webgl':
       case 'webgl2': {
         const contextInfo = HTMLCanvasElement.webGLInfo[contextType];
         if (!contextInfo) {
@@ -42,7 +41,7 @@ export class HTMLCanvasElement extends HTMLElement {
             this,
             'getContext',
             arguments,
-            (id) => new WebGLRenderingContextPolyfill(id, this, contextAttributes, contextInfo),
+            (id) => new WebGLRenderingContextPolyfill(contextType as CONTEXT_TYPE, id, this, contextAttributes, contextInfo),
           );
         }
         return this.contextWebGLs[contextType];
