@@ -33,7 +33,7 @@ class FakeOffscreenCanvas {
 test('should create an instance of TransferrableGLExtension with id and context', (t) => {
     const id = 1;
     const { element } = t.context;
-    const context = new WebGLRenderingContextPolyfill(id, element, undefined);
+    const context = new WebGLRenderingContextPolyfill('webgl2', id, element, undefined);
     const extension = new WEBGLDrawBuffers(id, context);
     t.deepEqual(extension.id, id);
     // @ts-ignore

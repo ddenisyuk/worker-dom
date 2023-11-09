@@ -1,7 +1,7 @@
 import { TransferrableObject } from '../../worker-thread';
 import { TransferrableKeys } from '../../../transfer/TransferrableKeys';
 import { TransferrableObjectType } from '../../../transfer/TransferrableMutation';
-import { GLConstants } from './GLConstants';
+import { GLC } from './GLC';
 
 export abstract class TransferrableGLObject implements TransferrableObject {
   public id: number;
@@ -32,6 +32,61 @@ export class vGLQuery extends TransferrableGLObject implements WebGLQuery {
 }
 
 export class vGLSampler extends TransferrableGLObject implements WebGLSampler {
+
+  public readonly parameters: {
+    [key: number]: {
+      value: number | boolean | null;
+      allowed: Array<number> | null;
+    };
+  } = {
+    [GLC.TEXTURE_MAG_FILTER]: {
+      value: GLC.LINEAR,
+      allowed: [GLC.LINEAR, GLC.NEAREST]
+    },
+    [GLC.TEXTURE_MIN_FILTER]: {
+      value: GLC.NEAREST_MIPMAP_LINEAR,
+      allowed: [
+        GLC.LINEAR,
+        GLC.NEAREST,
+        GLC.NEAREST_MIPMAP_NEAREST,
+        GLC.LINEAR_MIPMAP_NEAREST,
+        GLC.NEAREST_MIPMAP_LINEAR,
+        GLC.LINEAR_MIPMAP_LINEAR,
+      ],
+    },
+    [GLC.TEXTURE_WRAP_S]: {
+      value: GLC.REPEAT,
+      allowed: [GLC.REPEAT, GLC.CLAMP_TO_EDGE, GLC.MIRRORED_REPEAT],
+    },
+    [GLC.TEXTURE_WRAP_T]: {
+      value: GLC.REPEAT,
+      allowed: [GLC.REPEAT, GLC.CLAMP_TO_EDGE, GLC.MIRRORED_REPEAT],
+    },
+    [GLC.TEXTURE_COMPARE_FUNC]: {
+      value: GLC.LEQUAL,
+      allowed: [
+        GLC.LEQUAL,
+        GLC.GEQUAL,
+        GLC.LESS,
+        GLC.GREATER,
+        GLC.EQUAL,
+        GLC.NOTEQUAL,
+        GLC.ALWAYS,
+        GLC.NEVER,
+      ],
+    },
+    [GLC.TEXTURE_COMPARE_MODE]: {
+      value: GLC.NONE,
+      allowed: [GLC.NONE, GLC.COMPARE_REF_TO_TEXTURE],
+    },
+    [GLC.TEXTURE_MAX_LOD]: { value: 1000, allowed: null },
+    [GLC.TEXTURE_MIN_LOD]: { value: -1000, allowed: null },
+    [GLC.TEXTURE_WRAP_R]: {
+      value: GLC.REPEAT,
+      allowed: [GLC.REPEAT, GLC.CLAMP_TO_EDGE, GLC.MIRRORED_REPEAT],
+    },
+  }
+
   public constructor(id: number) {
     super(id);
   }
@@ -88,67 +143,67 @@ export class vGLTexture extends TransferrableGLObject implements WebGLTexture {
       allowed: Array<number | boolean>;
     };
   } = {
-    [GLConstants.TEXTURE_MAG_FILTER]: { value: GLConstants.LINEAR, readonly: false, allowed: [GLConstants.LINEAR, GLConstants.NEAREST] },
-    [GLConstants.TEXTURE_MIN_FILTER]: {
-      value: GLConstants.NEAREST_MIPMAP_LINEAR,
+    [GLC.TEXTURE_MAG_FILTER]: { value: GLC.LINEAR, readonly: false, allowed: [GLC.LINEAR, GLC.NEAREST] },
+    [GLC.TEXTURE_MIN_FILTER]: {
+      value: GLC.NEAREST_MIPMAP_LINEAR,
       readonly: false,
       allowed: [
-        GLConstants.LINEAR,
-        GLConstants.NEAREST,
-        GLConstants.NEAREST_MIPMAP_NEAREST,
-        GLConstants.LINEAR_MIPMAP_NEAREST,
-        GLConstants.NEAREST_MIPMAP_LINEAR,
-        GLConstants.LINEAR_MIPMAP_LINEAR,
+        GLC.LINEAR,
+        GLC.NEAREST,
+        GLC.NEAREST_MIPMAP_NEAREST,
+        GLC.LINEAR_MIPMAP_NEAREST,
+        GLC.NEAREST_MIPMAP_LINEAR,
+        GLC.LINEAR_MIPMAP_LINEAR,
       ],
     },
-    [GLConstants.TEXTURE_WRAP_S]: {
-      value: GLConstants.REPEAT,
+    [GLC.TEXTURE_WRAP_S]: {
+      value: GLC.REPEAT,
       readonly: false,
-      allowed: [GLConstants.REPEAT, GLConstants.CLAMP_TO_EDGE, GLConstants.MIRRORED_REPEAT],
+      allowed: [GLC.REPEAT, GLC.CLAMP_TO_EDGE, GLC.MIRRORED_REPEAT],
     },
-    [GLConstants.TEXTURE_WRAP_T]: {
-      value: GLConstants.REPEAT,
+    [GLC.TEXTURE_WRAP_T]: {
+      value: GLC.REPEAT,
       readonly: false,
-      allowed: [GLConstants.REPEAT, GLConstants.CLAMP_TO_EDGE, GLConstants.MIRRORED_REPEAT],
+      allowed: [GLC.REPEAT, GLC.CLAMP_TO_EDGE, GLC.MIRRORED_REPEAT],
     },
-    [GLConstants.TEXTURE_MAX_ANISOTROPY_EXT]: {
+    [GLC.TEXTURE_MAX_ANISOTROPY_EXT]: {
       value: 1, // 1 if extension enabled, EXT_texture_filter_anisotropic, null otherwise
       readonly: false,
       allowed: [],
     },
-    [GLConstants.TEXTURE_BASE_LEVEL]: {
+    [GLC.TEXTURE_BASE_LEVEL]: {
       value: 0,
       readonly: false,
       allowed: [],
     },
-    [GLConstants.TEXTURE_COMPARE_FUNC]: {
-      value: GLConstants.LEQUAL,
+    [GLC.TEXTURE_COMPARE_FUNC]: {
+      value: GLC.LEQUAL,
       readonly: false,
       allowed: [
-        GLConstants.LEQUAL,
-        GLConstants.GEQUAL,
-        GLConstants.LESS,
-        GLConstants.GREATER,
-        GLConstants.EQUAL,
-        GLConstants.NOTEQUAL,
-        GLConstants.ALWAYS,
-        GLConstants.NEVER,
+        GLC.LEQUAL,
+        GLC.GEQUAL,
+        GLC.LESS,
+        GLC.GREATER,
+        GLC.EQUAL,
+        GLC.NOTEQUAL,
+        GLC.ALWAYS,
+        GLC.NEVER,
       ],
     },
-    [GLConstants.TEXTURE_COMPARE_MODE]: {
-      value: GLConstants.NONE,
+    [GLC.TEXTURE_COMPARE_MODE]: {
+      value: GLC.NONE,
       readonly: false,
-      allowed: [GLConstants.NONE, GLConstants.COMPARE_REF_TO_TEXTURE],
+      allowed: [GLC.NONE, GLC.COMPARE_REF_TO_TEXTURE],
     },
-    [GLConstants.TEXTURE_IMMUTABLE_FORMAT]: { value: false, readonly: true, allowed: [true, false] },
-    [GLConstants.TEXTURE_IMMUTABLE_LEVELS]: { value: 0, readonly: true, allowed: [] },
-    [GLConstants.TEXTURE_MAX_LEVEL]: { value: 1000, readonly: false, allowed: [] },
-    [GLConstants.TEXTURE_MAX_LOD]: { value: 1000, readonly: false, allowed: [] },
-    [GLConstants.TEXTURE_MIN_LOD]: { value: -1000, readonly: false, allowed: [] },
-    [GLConstants.TEXTURE_WRAP_R]: {
-      value: GLConstants.REPEAT,
+    [GLC.TEXTURE_IMMUTABLE_FORMAT]: { value: false, readonly: true, allowed: [true, false] },
+    [GLC.TEXTURE_IMMUTABLE_LEVELS]: { value: 0, readonly: true, allowed: [] },
+    [GLC.TEXTURE_MAX_LEVEL]: { value: 1000, readonly: false, allowed: [] },
+    [GLC.TEXTURE_MAX_LOD]: { value: 1000, readonly: false, allowed: [] },
+    [GLC.TEXTURE_MIN_LOD]: { value: -1000, readonly: false, allowed: [] },
+    [GLC.TEXTURE_WRAP_R]: {
+      value: GLC.REPEAT,
       readonly: false,
-      allowed: [GLConstants.REPEAT, GLConstants.CLAMP_TO_EDGE, GLConstants.MIRRORED_REPEAT],
+      allowed: [GLC.REPEAT, GLC.CLAMP_TO_EDGE, GLC.MIRRORED_REPEAT],
     },
   };
 

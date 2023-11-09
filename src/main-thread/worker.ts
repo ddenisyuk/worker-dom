@@ -10,7 +10,10 @@ import { IframeWorker } from './iframe-worker';
 // TODO: Sanitizer storage init is likely broken, since the code currently
 // attempts to stringify a Promise.
 export type StorageInit =
-  | { storage: Storage | Promise<StorageValue>; errorMsg: null }
+  | {
+  storage: Storage | Promise<StorageValue>;
+  errorMsg: null
+}
   | {
   storage: null;
   errorMsg: string;
@@ -165,7 +168,7 @@ function findTransferable(object: any): any[] {
     object instanceof OffscreenCanvas ||
     // TS unsupported
     // @ts-ignore
-    object instanceof WebTransportReceiveStream ||
+    // object instanceof WebTransportReceiveStream ||
     // @ts-ignore
     object instanceof AudioData
   ) {
@@ -211,21 +214,40 @@ function getWebGLMetaData(): any {
     [type: string]: {
       extensions: string[] | null;
       attributes: WebGLContextAttributes | null;
-      parameters: { [key: number]: any } | null;
-      shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } };
+      parameters: {
+        [key: number]: any
+      } | null;
+      shaderPrecisionFormat: {
+        [key: number]: {
+          [key: number]: WebGLShaderPrecisionFormat | null
+        }
+      };
       drawingBufferColorSpace: PredefinedColorSpace;
       unpackColorSpace: PredefinedColorSpace;
+      internalformatParameter: {
+        [key: number]: number[] | null
+      };
+
     } | null;
   } = {};
 
-  ['webgl', 'webgl2', 'experimental-webgl'].forEach((type) => {
+  ['webgl', 'webgl2'].forEach((type) => {
     const contextMeta: {
       extensions: string[] | null;
       attributes: WebGLContextAttributes | null;
-      parameters: { [key: number]: any } | null;
-      shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } };
+      parameters: {
+        [key: number]: any
+      } | null;
+      shaderPrecisionFormat: {
+        [key: number]: {
+          [key: number]: WebGLShaderPrecisionFormat | null
+        }
+      };
       drawingBufferColorSpace: PredefinedColorSpace;
       unpackColorSpace: PredefinedColorSpace;
+      internalformatParameter: {
+        [key: number]: number[]
+      };
     } = {
       extensions: null,
       attributes: null,
@@ -233,6 +255,7 @@ function getWebGLMetaData(): any {
       shaderPrecisionFormat: {},
       drawingBufferColorSpace: 'srgb',
       unpackColorSpace: 'srgb',
+      internalformatParameter: {},
     };
 
     try {
@@ -251,6 +274,7 @@ function getWebGLMetaData(): any {
           context.ALPHA_BITS,
           context.DEPTH_BITS,
           context.STENCIL_BITS,
+          context.SUBPIXEL_BITS,
 
           context.MAX_RENDERBUFFER_SIZE,
           context.MAX_COMBINED_TEXTURE_IMAGE_UNITS,
@@ -265,6 +289,8 @@ function getWebGLMetaData(): any {
           context.ALIASED_LINE_WIDTH_RANGE,
           context.ALIASED_POINT_SIZE_RANGE,
           context.MAX_VIEWPORT_DIMS,
+          context.IMPLEMENTATION_COLOR_READ_FORMAT,
+          context.IMPLEMENTATION_COLOR_READ_TYPE,
 
           //webgl2
           context.MAX_VERTEX_UNIFORM_COMPONENTS,
@@ -292,7 +318,10 @@ function getWebGLMetaData(): any {
           context.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS,
           context.MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS,
           context.MAX_ELEMENT_INDEX,
+          context.MAX_ELEMENTS_INDICES,
+          context.MAX_ELEMENTS_VERTICES,
           context.MAX_SERVER_WAIT_TIMEOUT,
+          context.MAX_CLIENT_WAIT_TIMEOUT_WEBGL,
         ];
 
         contextMeta.drawingBufferColorSpace = context.drawingBufferColorSpace;
@@ -306,7 +335,9 @@ function getWebGLMetaData(): any {
           requiredParameters.push(extension.UNMASKED_VENDOR_WEBGL, extension.UNMASKED_RENDERER_WEBGL);
         }
 
-        const parameters: { [key: number]: any } = {};
+        const parameters: {
+          [key: number]: any
+        } = {};
         requiredParameters
           .filter((value) => !!value) // filter out unsupported parameters
           .forEach((key) => {
@@ -324,6 +355,72 @@ function getWebGLMetaData(): any {
             },
           );
         });
+
+
+        // internalformatParameter
+        if ('getInternalformatParameter' in context) {
+          // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/renderbufferStorage
+          const internalformats = [
+            context.RGBA4,
+            context.RGB565,
+            context.RGB5_A1,
+            context.DEPTH_COMPONENT16,
+            context.STENCIL_INDEX8,
+            // context.DEPTH_STENCIL,
+
+            context.R8,
+            context.R8UI,
+            context.R8I,
+            context.R16UI,
+            context.R16I,
+            context.R32UI,
+            context.R32I,
+            context.RG8,
+            context.RG8UI,
+            context.RG8I,
+            context.RG16UI,
+            context.RG16I,
+            context.RG32UI,
+            context.RG32I,
+            context.RGB8,
+            context.RGBA8,
+            context.SRGB8_ALPHA8,
+            context.RGB10_A2,
+            context.RGBA8UI,
+            context.RGBA8I,
+            context.RGB10_A2UI,
+            context.RGBA16UI,
+            context.RGBA16I,
+            context.RGBA32I,
+            context.RGBA32UI,
+            context.DEPTH_COMPONENT24,
+            context.DEPTH_COMPONENT32F,
+            context.DEPTH24_STENCIL8,
+            context.DEPTH32F_STENCIL8,
+
+            // EXT_color_buffer_float | EXT_color_buffer_half_float
+            context.R16F,
+            context.RG16F,
+            context.RGBA16F,
+            context.R32F,
+            context.RG32F,
+            // context.RGB32F,
+            context.RGBA32F,
+            context.R11F_G11F_B10F,
+          ];
+
+          context.getExtension('EXT_color_buffer_float');
+          context.getExtension('EXT_color_buffer_half_float');
+          internalformats
+            .filter((value) => !!value) // filter out unsupported parameters
+            .forEach((key) => {
+              // https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/getInternalformatParameter
+              const parameter: Int32Array = context.getInternalformatParameter(context.RENDERBUFFER, key, context.SAMPLES);
+              if (parameter && parameter.length > 0) {
+                contextMeta.internalformatParameter[key] = Array.from(parameter);
+              }
+            });
+        }
 
         result[type] = contextMeta;
       } else {

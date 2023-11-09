@@ -1,5 +1,5 @@
 import { HTMLCanvasElement } from '../dom/HTMLCanvasElement';
-import { GLConstants } from './gl/GLConstants';
+import { GLC } from './gl/GLC';
 import { TransferrableKeys } from '../../transfer/TransferrableKeys';
 import { TransferrableObject } from '../worker-thread';
 import { transfer } from '../MutationTransfer';
@@ -38,66 +38,14 @@ import { callFunction } from '../function';
 import { createObjectReference, deleteObjectReference } from '../object-reference';
 import { WebGLOptions } from './WebGLOptions';
 
-export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2RenderingContext, TransferrableObject {
+export type CONTEXT_TYPE = 'webgl' | 'webgl2';
+
+export class WebGLRenderingContextPolyfill extends GLC implements WebGL2RenderingContext, TransferrableObject {
+  public readonly type: CONTEXT_TYPE;
   public readonly id: number;
   public readonly canvas: HTMLCanvasElement | any;
   public readonly drawingBufferHeight: GLsizei;
   public readonly drawingBufferWidth: GLsizei;
-
-  private readonly requiredParams: number[] = [
-    this.VERSION,
-    this.RENDERER,
-    this.VENDOR,
-    this.SHADING_LANGUAGE_VERSION,
-    this.RED_BITS,
-    this.GREEN_BITS,
-    this.BLUE_BITS,
-    this.ALPHA_BITS,
-    this.DEPTH_BITS,
-    this.STENCIL_BITS,
-
-    this.MAX_RENDERBUFFER_SIZE,
-    this.MAX_COMBINED_TEXTURE_IMAGE_UNITS,
-    this.MAX_CUBE_MAP_TEXTURE_SIZE,
-    this.MAX_FRAGMENT_UNIFORM_VECTORS,
-    this.MAX_TEXTURE_IMAGE_UNITS,
-    this.MAX_TEXTURE_SIZE,
-    this.MAX_VARYING_VECTORS,
-    this.MAX_VERTEX_ATTRIBS,
-    this.MAX_VERTEX_TEXTURE_IMAGE_UNITS,
-    this.MAX_VERTEX_UNIFORM_VECTORS,
-    this.ALIASED_LINE_WIDTH_RANGE,
-    this.ALIASED_POINT_SIZE_RANGE,
-    this.MAX_VIEWPORT_DIMS,
-
-    //webgl2
-    this.MAX_VERTEX_UNIFORM_COMPONENTS,
-    this.MAX_VERTEX_UNIFORM_BLOCKS,
-    this.MAX_VERTEX_OUTPUT_COMPONENTS,
-    this.MAX_VARYING_COMPONENTS,
-    this.MAX_FRAGMENT_UNIFORM_COMPONENTS,
-    this.MAX_FRAGMENT_UNIFORM_BLOCKS,
-    this.MAX_FRAGMENT_INPUT_COMPONENTS,
-    this.MIN_PROGRAM_TEXEL_OFFSET,
-    this.MAX_PROGRAM_TEXEL_OFFSET,
-    this.MAX_DRAW_BUFFERS,
-    this.MAX_COLOR_ATTACHMENTS,
-    this.MAX_SAMPLES,
-    this.MAX_3D_TEXTURE_SIZE,
-    this.MAX_ARRAY_TEXTURE_LAYERS,
-    this.MAX_TEXTURE_LOD_BIAS,
-    this.MAX_UNIFORM_BUFFER_BINDINGS,
-    this.MAX_UNIFORM_BLOCK_SIZE,
-    this.UNIFORM_BUFFER_OFFSET_ALIGNMENT,
-    this.MAX_COMBINED_UNIFORM_BLOCKS,
-    this.MAX_COMBINED_VERTEX_UNIFORM_COMPONENTS,
-    this.MAX_COMBINED_FRAGMENT_UNIFORM_COMPONENTS,
-    this.MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS,
-    this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS,
-    this.MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS,
-    this.MAX_ELEMENT_INDEX,
-    this.MAX_SERVER_WAIT_TIMEOUT,
-  ];
 
   private readonly _serializedAsTransferrableObject: number[];
 
@@ -105,7 +53,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   private readonly _extensions: {
     [key: string]: any;
   } = {};
-  private readonly _parameters: {
+  readonly _parameters: {
     [key: number]: any;
   };
   private readonly _buffers: {
@@ -124,14 +72,16 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     program: null,
     vertexArray: null,
     transformFeedback: null,
-    sampler: null,
   };
   private readonly _boundTextures: {
     [key: GLenum]: {
       [key: GLenum]: vGLTexture | null;
+      sampler: vGLSampler | null;
     };
   } = {
-    [this.TEXTURE0]: {},
+    [GLC.TEXTURE0]: {
+      sampler: null,
+    },
   };
 
   // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/isEnabled
@@ -139,17 +89,20 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   private readonly _capabilities: {
     [key: GLenum]: boolean;
   } = {
-    [this.DITHER]: true,
-    [this.BLEND]: false,
-    [this.CULL_FACE]: false,
-    [this.DEPTH_TEST]: false,
-    [this.POLYGON_OFFSET_FILL]: false,
-    [this.SAMPLE_ALPHA_TO_COVERAGE]: false,
-    [this.SAMPLE_COVERAGE]: false,
-    [this.SCISSOR_TEST]: false,
-    [this.STENCIL_TEST]: false,
-    [this.RASTERIZER_DISCARD]: false,
+    [GLC.DITHER]: true,
+    [GLC.BLEND]: false,
+    [GLC.CULL_FACE]: false,
+    [GLC.DEPTH_TEST]: false,
+    [GLC.POLYGON_OFFSET_FILL]: false,
+    [GLC.SAMPLE_ALPHA_TO_COVERAGE]: false,
+    [GLC.SAMPLE_COVERAGE]: false,
+    [GLC.SCISSOR_TEST]: false,
+    [GLC.STENCIL_TEST]: false,
+    [GLC.RASTERIZER_DISCARD]: false,
   };
+
+  private readonly _shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } } = {};
+  private readonly _internalformatParameter: { [key: number]: number[] } = {};
 
   // @ts-ignore
   // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/unpackColorSpace
@@ -157,15 +110,15 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   private _drawingBufferColorSpace: PredefinedColorSpace = 'srgb';
 
   private _contextAttributes: WebGLContextAttributes | null = null;
-  private _shaderPrecisionFormat: { [key: number]: { [key: number]: WebGLShaderPrecisionFormat | null } } = {};
-  private _activeTexture: GLenum = this.TEXTURE0;
-  private _error: GLenum = this.NO_ERROR;
+  private _activeTexture: GLenum = GLC.TEXTURE0;
+  private _error: GLenum = GLC.NO_ERROR;
   private _contextLost: boolean = false;
 
-  constructor(id: number, canvas: HTMLCanvasElement, contextAttributes: WebGLContextAttributes | undefined, options?: WebGLOptions | null) {
+  constructor(type: CONTEXT_TYPE, id: number, canvas: HTMLCanvasElement, contextAttributes: WebGLContextAttributes | undefined, options?: WebGLOptions | null) {
     super();
     options = options || ({} as WebGLOptions);
 
+    this.type = type;
     this.id = id;
     this._serializedAsTransferrableObject = [TransferrableObjectType.TransferObject, this.id];
 
@@ -178,15 +131,16 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this._shaderPrecisionFormat = options.shaderPrecisionFormat;
     this._drawingBufferColorSpace = options.drawingBufferColorSpace;
     this._unpackColorSpace = options.unpackColorSpace;
+    this._internalformatParameter = options.internalformatParameter;
 
     this.initializeContextLostHandlers();
     this.initializeContextAttributes(contextAttributes);
     this.initializeSupportedExtensions();
-    this.initializeParameters();
+    this.initializeParameters(type);
 
     this._indexedBuffers = {
-      [this.TRANSFORM_FEEDBACK_BUFFER]: new Array(this._parameters[this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS] || 12),
-      [this.UNIFORM_BUFFER]: new Array(this._parameters[this.MAX_UNIFORM_BUFFER_BINDINGS] || 12),
+      [GLC.TRANSFORM_FEEDBACK_BUFFER]: new Array(this._parameters[GLC.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS] || 12),
+      [GLC.UNIFORM_BUFFER]: new Array(this._parameters[GLC.MAX_UNIFORM_BUFFER_BINDINGS] || 12),
     };
   }
 
@@ -218,15 +172,17 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
    * @throws If texture is not one of gl.TEXTUREI, where I is within the range from 0 to gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS - 1, a gl.INVALID_ENUM error is thrown.
    */
   activeTexture(texture: GLenum): void {
-    if (texture - this.TEXTURE0 >= this.getParameter(this.MAX_COMBINED_TEXTURE_IMAGE_UNITS)) {
-      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'activeTexture', 'texture unit out of range');
+    if (texture - GLC.TEXTURE0 >= this.getParameter(GLC.MAX_COMBINED_TEXTURE_IMAGE_UNITS)) {
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'activeTexture', 'texture unit out of range');
       return;
     }
 
     this[TransferrableKeys.mutated]('activeTexture', arguments);
     this._activeTexture = texture;
     if (!this._boundTextures[this._activeTexture]) {
-      this._boundTextures[this._activeTexture] = {};
+      this._boundTextures[this._activeTexture] = {
+        sampler: null,
+      };
     }
   }
 
@@ -241,6 +197,8 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   beginTransformFeedback(primitiveMode: GLenum): void {
     this[TransferrableKeys.mutated]('beginTransformFeedback', arguments);
+    this._parameters[GLC.TRANSFORM_FEEDBACK_ACTIVE] = true;
+    this._parameters[GLC.TRANSFORM_FEEDBACK_PAUSED] = false;
   }
 
   bindAttribLocation(program: GLProgram, index: GLuint, name: string): void {
@@ -259,21 +217,21 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
 
     switch (target) {
-      case this.ELEMENT_ARRAY_BUFFER:
-      case this.COPY_READ_BUFFER:
-      case this.COPY_WRITE_BUFFER:
-      case this.TRANSFORM_FEEDBACK_BUFFER:
-      case this.UNIFORM_BUFFER:
-      case this.PIXEL_PACK_BUFFER:
-      case this.PIXEL_UNPACK_BUFFER:
-      case this.ARRAY_BUFFER: {
+      case GLC.ELEMENT_ARRAY_BUFFER:
+      case GLC.COPY_READ_BUFFER:
+      case GLC.COPY_WRITE_BUFFER:
+      case GLC.TRANSFORM_FEEDBACK_BUFFER:
+      case GLC.UNIFORM_BUFFER:
+      case GLC.PIXEL_PACK_BUFFER:
+      case GLC.PIXEL_UNPACK_BUFFER:
+      case GLC.ARRAY_BUFFER: {
         this[TransferrableKeys.mutated]('bindBuffer', arguments);
         this._bindBuffer(target, buffer);
         break;
       }
       default: {
         // WebGL: INVALID_ENUM: bindBuffer: invalid target - xxx
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindBuffer', 'invalid target - ' + target);
+        this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'bindBuffer', 'invalid target - ' + target);
       }
     }
   }
@@ -284,25 +242,25 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
     // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glBindBufferBase.xhtml
     switch (target) {
-      case this.TRANSFORM_FEEDBACK_BUFFER: {
-        if (index >= this.getParameter(this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)) {
+      case GLC.TRANSFORM_FEEDBACK_BUFFER: {
+        if (index >= this.getParameter(GLC.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)) {
           // WebGL: INVALID_VALUE: bindBufferBase: index out of range
-          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferBase', 'index out of range');
+          this._webglError(GLC.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferBase', 'index out of range');
           return;
         }
         break;
       }
-      case this.UNIFORM_BUFFER: {
-        if (index >= this.getParameter(this.MAX_UNIFORM_BUFFER_BINDINGS)) {
+      case GLC.UNIFORM_BUFFER: {
+        if (index >= this.getParameter(GLC.MAX_UNIFORM_BUFFER_BINDINGS)) {
           // WebGL: INVALID_VALUE: bindBufferBase: index out of range
-          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferBase', 'index out of range');
+          this._webglError(GLC.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferBase', 'index out of range');
           return;
         }
         break;
       }
       default: {
         // WebGL: INVALID_ENUM: bindBufferBase: invalid target - xxx
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindBufferBase', 'invalid target - ' + target);
+        this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'bindBufferBase', 'invalid target - ' + target);
         return;
       }
     }
@@ -319,42 +277,42 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
     if (buffer != null && size <= 0) {
       // WebGL: INVALID_VALUE: bindBufferRange: size out of range
-      this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'size out of range');
+      this._webglError(GLC.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'size out of range');
       return;
     }
 
     switch (target) {
-      case this.TRANSFORM_FEEDBACK_BUFFER: {
-        if (index >= this.getParameter(this.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)) {
+      case GLC.TRANSFORM_FEEDBACK_BUFFER: {
+        if (index >= this.getParameter(GLC.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)) {
           // WebGL: INVALID_VALUE: bindBufferRange: index out of range
-          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'index out of range');
+          this._webglError(GLC.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'index out of range');
           return;
         }
 
         if (offset % 4 !== 0 || size % 4 !== 0) {
           // WebGL: INVALID_VALUE: bindBufferRange: size or offset are not multiples of 4
-          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'size or offset are not multiples of 4');
+          this._webglError(GLC.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'size or offset are not multiples of 4');
           return;
         }
 
         break;
       }
-      case this.UNIFORM_BUFFER: {
-        if (index >= this.getParameter(this.MAX_UNIFORM_BUFFER_BINDINGS)) {
+      case GLC.UNIFORM_BUFFER: {
+        if (index >= this.getParameter(GLC.MAX_UNIFORM_BUFFER_BINDINGS)) {
           // WebGL: INVALID_VALUE: bindBufferRange: index out of range
-          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'index out of range');
+          this._webglError(GLC.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'index out of range');
           return;
         }
-        if (offset % this.getParameter(this.UNIFORM_BUFFER_OFFSET_ALIGNMENT) !== 0) {
+        if (offset % this.getParameter(GLC.UNIFORM_BUFFER_OFFSET_ALIGNMENT) !== 0) {
           // WebGL: INVALID_VALUE: bindBufferRange: index out of range
-          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'offset are not multiples of UNIFORM_BUFFER_OFFSET_ALIGNMENT');
+          this._webglError(GLC.INVALID_VALUE, 'INVALID_VALUE', 'bindBufferRange', 'offset are not multiples of UNIFORM_BUFFER_OFFSET_ALIGNMENT');
           return;
         }
         break;
       }
       default: {
         // WebGL: INVALID_ENUM: bindBufferRange: invalid target - xxx
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindBufferRange', 'invalid target - ' + target);
+        this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'bindBufferRange', 'invalid target - ' + target);
         return;
       }
     }
@@ -371,16 +329,16 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
 
     switch (target) {
-      case this.FRAMEBUFFER:
-      case this.DRAW_FRAMEBUFFER:
-      case this.READ_FRAMEBUFFER: {
+      case GLC.FRAMEBUFFER:
+      case GLC.DRAW_FRAMEBUFFER:
+      case GLC.READ_FRAMEBUFFER: {
         this[TransferrableKeys.mutated]('bindFramebuffer', arguments);
         this._bindBuffer(target, framebuffer);
         break;
       }
       default: {
         // WebGL: INVALID_ENUM: bindFramebuffer: invalid target - xxx
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindFramebuffer', 'invalid target - ' + target);
+        this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'bindFramebuffer', 'invalid target - ' + target);
       }
     }
   }
@@ -391,14 +349,14 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
 
     switch (target) {
-      case this.RENDERBUFFER: {
+      case GLC.RENDERBUFFER: {
         this[TransferrableKeys.mutated]('bindRenderbuffer', arguments);
         this._bindBuffer(target, renderbuffer);
         break;
       }
       default: {
         // WebGL: INVALID_ENUM: bindRenderbuffer: invalid target - xxx
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindRenderbuffer', 'invalid target - ' + target);
+        this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'bindRenderbuffer', 'invalid target - ' + target);
       }
     }
   }
@@ -409,7 +367,17 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
 
     this[TransferrableKeys.mutated]('bindSampler', arguments);
-    this._bindings.sampler = sampler;
+
+    type ObjectKey = keyof typeof this; // TODO: is this OK?
+
+    const activeTextureKey = this['TEXTURE' + unit as ObjectKey] as GLenum;
+    if (!this._boundTextures[activeTextureKey]) {
+      this._boundTextures[activeTextureKey] = {
+        sampler,
+      };
+    } else {
+      this._boundTextures[activeTextureKey].sampler = sampler;
+    }
   }
 
   bindTexture(target: GLenum, texture: vGLTexture | null): void {
@@ -418,14 +386,14 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
 
     switch (target) {
-      case this.TEXTURE_2D:
-      case this.TEXTURE_CUBE_MAP:
-      case this.TEXTURE_2D_ARRAY:
-      case this.TEXTURE_3D: {
+      case GLC.TEXTURE_2D:
+      case GLC.TEXTURE_CUBE_MAP:
+      case GLC.TEXTURE_2D_ARRAY:
+      case GLC.TEXTURE_3D: {
         if (texture != null) {
           if (texture.boundTarget != null && texture.boundTarget != target) {
             // WebGL: INVALID_OPERATION: bindTexture: textures can not be used with multiple targets
-            this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', 'bindTexture', 'textures can not be used with multiple targets');
+            this._webglError(GLC.INVALID_OPERATION, 'INVALID_OPERATION', 'bindTexture', 'textures can not be used with multiple targets');
             return;
           }
           texture.boundTarget = target;
@@ -444,7 +412,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       }
       default: {
         // WebGL: INVALID_ENUM: bindTexture: invalid target
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindTexture', 'invalid target - ' + target);
+        this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'bindTexture', 'invalid target - ' + target);
       }
     }
   }
@@ -455,14 +423,14 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
 
     switch (target) {
-      case this.TRANSFORM_FEEDBACK: {
+      case GLC.TRANSFORM_FEEDBACK: {
         this[TransferrableKeys.mutated]('bindTransformFeedback', arguments);
         this._bindings.transformFeedback = tf;
         break;
       }
       default: {
         // WebGL: INVALID_ENUM: bindRenderbuffer: invalid target - xxx
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'bindTransformFeedback', 'invalid target - ' + target);
+        this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'bindTransformFeedback', 'invalid target - ' + target);
       }
     }
   }
@@ -478,22 +446,37 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   blendColor(red: GLclampf, green: GLclampf, blue: GLclampf, alpha: GLclampf): void {
     this[TransferrableKeys.mutated]('blendColor', arguments);
+    this._parameters[GLC.BLEND_COLOR] = [red, green, blue, alpha];
   }
 
   blendEquation(mode: GLenum): void {
     this[TransferrableKeys.mutated]('blendEquation', arguments);
+    this._parameters[GLC.BLEND_EQUATION] = mode;
+    this._parameters[GLC.BLEND_EQUATION_ALPHA] = mode;
+    this._parameters[GLC.BLEND_EQUATION_RGB] = mode;
   }
 
   blendEquationSeparate(modeRGB: GLenum, modeAlpha: GLenum): void {
     this[TransferrableKeys.mutated]('blendEquationSeparate', arguments);
+    this._parameters[GLC.BLEND_EQUATION] = modeRGB;
+    this._parameters[GLC.BLEND_EQUATION_ALPHA] = modeAlpha;
+    this._parameters[GLC.BLEND_EQUATION_RGB] = modeRGB;
   }
 
   blendFunc(sfactor: GLenum, dfactor: GLenum): void {
     this[TransferrableKeys.mutated]('blendFunc', arguments);
+    this._parameters[GLC.BLEND_SRC_RGB] = sfactor;
+    this._parameters[GLC.BLEND_SRC_ALPHA] = sfactor;
+    this._parameters[GLC.BLEND_DST_RGB] = dfactor;
+    this._parameters[GLC.BLEND_DST_ALPHA] = dfactor;
   }
 
   blendFuncSeparate(srcRGB: GLenum, dstRGB: GLenum, srcAlpha: GLenum, dstAlpha: GLenum): void {
     this[TransferrableKeys.mutated]('blendFuncSeparate', arguments);
+    this._parameters[GLC.BLEND_SRC_RGB] = srcRGB;
+    this._parameters[GLC.BLEND_SRC_ALPHA] = srcAlpha;
+    this._parameters[GLC.BLEND_DST_RGB] = dstRGB;
+    this._parameters[GLC.BLEND_DST_ALPHA] = dstAlpha;
   }
 
   blitFramebuffer(
@@ -541,7 +524,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   checkFramebufferStatus(target: GLenum): GLenum {
-    return this.FRAMEBUFFER_COMPLETE; // hope
+    return GLC.FRAMEBUFFER_COMPLETE; // hope
   }
 
   clear(mask: GLbitfield): void {
@@ -572,14 +555,17 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   clearColor(red: GLclampf, green: GLclampf, blue: GLclampf, alpha: GLclampf): void {
     this[TransferrableKeys.mutated]('clearColor', arguments);
+    this._parameters[GLC.COLOR_CLEAR_VALUE] = [red, green, blue, alpha];
   }
 
   clearDepth(depth: GLclampf): void {
     this[TransferrableKeys.mutated]('clearDepth', arguments);
+    this._parameters[GLC.DEPTH_CLEAR_VALUE] = depth;
   }
 
   clearStencil(s: GLint): void {
     this[TransferrableKeys.mutated]('clearStencil', arguments);
+    this._parameters[GLC.STENCIL_CLEAR_VALUE] = s;
   }
 
   clientWaitSync(sync: vGLSync, flags: GLbitfield, timeout: GLuint64): GLenum {
@@ -588,6 +574,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   colorMask(red: GLboolean, green: GLboolean, blue: GLboolean, alpha: GLboolean): void {
     this[TransferrableKeys.mutated]('colorMask', arguments);
+    this._parameters[GLC.COLOR_WRITEMASK] = [red, green, blue, alpha];
   }
 
   compileShader(shader: GLShader): void {
@@ -809,6 +796,8 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   createTransformFeedback(): vGLTransformFeedback | null {
+    this._parameters[GLC.TRANSFORM_FEEDBACK_ACTIVE] = false;
+    this._parameters[GLC.TRANSFORM_FEEDBACK_PAUSED] = false;
     return this.createObjectReference('createTransformFeedback', [], (id) => new vGLTransformFeedback(id));
   }
 
@@ -817,7 +806,15 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   cullFace(mode: GLenum): void {
-    this[TransferrableKeys.mutated]('cullFace', arguments);
+    if (mode != GLC.BACK && mode != GLC.FRONT && mode != GLC.FRONT_AND_BACK) {
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'cullFace', 'invalid mode ' + mode);
+      return;
+    }
+
+    if (this.getParameter(GLC.CULL_FACE_MODE) != mode) {
+      this[TransferrableKeys.mutated]('cullFace', arguments);
+      this._parameters[GLC.CULL_FACE_MODE] = mode;
+    }
   }
 
   deleteBuffer(buffer: vGLBuffer | null): void {
@@ -868,8 +865,10 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this[TransferrableKeys.mutated]('deleteSampler', arguments);
     this.deleteObjectReference(sampler.id);
 
-    if (this._bindings.sampler === sampler) {
-      this._bindings.sampler = null;
+    for (const boundTexturesKey in this._boundTextures) {
+      if (this._boundTextures[boundTexturesKey].sampler === sampler) {
+        this._boundTextures[boundTexturesKey].sampler = null;
+      }
     }
     sampler.delete();
   }
@@ -932,14 +931,17 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   depthFunc(func: GLenum): void {
     this[TransferrableKeys.mutated]('depthFunc', arguments);
+    this._parameters[GLC.DEPTH_FUNC] = func;
   }
 
   depthMask(flag: GLboolean): void {
     this[TransferrableKeys.mutated]('depthMask', arguments);
+    this._parameters[GLC.DEPTH_WRITEMASK] = flag;
   }
 
   depthRange(zNear: GLclampf, zFar: GLclampf): void {
     this[TransferrableKeys.mutated]('depthRange', arguments);
+    this._parameters[GLC.DEPTH_RANGE] = [zNear, zFar];
   }
 
   detachShader(program: GLProgram, shader: GLShader): void {
@@ -968,6 +970,14 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   drawBuffers(buffers: Iterable<GLenum>): void;
   drawBuffers(buffers: GLenum[] | Iterable<GLenum>): void {
     this[TransferrableKeys.mutated]('drawBuffers', arguments);
+
+    // // https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDrawBuffers.xhtml
+    // const buffer = this._getBoundBuffer(this.DRAW_FRAMEBUFFER) || this._getBoundBuffer(this.FRAMEBUFFER);
+    // if (buffer) {
+    //   buffer.buffers = [...buffers];
+    // } else {
+    //   console.warn('No DRAW_FRAMEBUFFER or FRAMEBUFFER bound.');
+    // }
   }
 
   drawElements(mode: GLenum, count: GLsizei, type: GLenum, offset: GLintptr): void {
@@ -997,6 +1007,8 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   endTransformFeedback(): void {
     this[TransferrableKeys.mutated]('endTransformFeedback', []);
+    this._parameters[GLC.TRANSFORM_FEEDBACK_ACTIVE] = false;
+    this._parameters[GLC.TRANSFORM_FEEDBACK_PAUSED] = false;
   }
 
   fenceSync(condition: GLenum, flags: GLbitfield): vGLSync | null {
@@ -1024,7 +1036,15 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   frontFace(mode: GLenum): void {
-    this[TransferrableKeys.mutated]('frontFace', arguments);
+    if (mode != GLC.CW && mode != GLC.CCW) {
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'frontFace', 'invalid mode ' + mode);
+      return;
+    }
+
+    if (this.getParameter(GLC.FRONT_FACE) != mode) {
+      this[TransferrableKeys.mutated]('frontFace', arguments);
+      this._parameters[GLC.FRONT_FACE] = mode;
+    }
   }
 
   generateMipmap(target: GLenum): void {
@@ -1069,20 +1089,20 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   getBufferParameter(target: GLenum, pname: GLenum): any {
     const buffer = this._getBoundBuffer(target);
     if (buffer === null) {
-      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getBufferParameter', 'invalid target ' + target);
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getBufferParameter', 'invalid target ' + target);
       return null;
     }
     // see #bufferData
     switch (pname) {
-      case this.BUFFER_SIZE: {
+      case GLC.BUFFER_SIZE: {
         //Returns a GLint indicating the size of the buffer in bytes.
         return buffer.size;
       }
-      case this.BUFFER_USAGE: {
+      case GLC.BUFFER_USAGE: {
         return buffer.usage;
       }
       default: {
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getBufferParameter', 'invalid pname ' + pname);
+        this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getBufferParameter', 'invalid pname ' + pname);
         return null;
       }
     }
@@ -1098,7 +1118,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   getError(): GLenum {
     const current = this._error;
-    this._error = this.NO_ERROR;
+    this._error = GLC.NO_ERROR;
     return current;
   }
 
@@ -1130,7 +1150,6 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
         case 'EXT_texture_compression_rgtc':
         case 'EXT_texture_norm16':
         case 'KHR_parallel_shader_compile':
-        case 'OES_standard_derivatives':
         case 'OES_texture_half_float':
         case 'WEBGL_color_buffer_float':
         case 'WEBGL_compressed_texture_etc':
@@ -1141,6 +1160,10 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
         case 'WEBGL_debug_renderer_info':
         case 'WEBGL_depth_texture':
           return new GenericExtension();
+        case 'OES_standard_derivatives': {
+          this.fetchParameterWithDefaultValue(GLC.FRAGMENT_SHADER_DERIVATIVE_HINT_OES, null);
+          return new GenericExtension();
+        }
         case 'WEBGL_compressed_texture_astc':
           return new WEBGLCompressedTextureAstc();
         case 'WEBGL_debug_shaders':
@@ -1148,27 +1171,27 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
         case 'ANGLE_instanced_arrays':
           return new ANGLEInstancedArrays(id, this);
         case 'EXT_disjoint_timer_query':
-        case 'EXT_disjoint_timer_query_webgl2':
+        case 'EXT_disjoint_timer_query_webgl2': // TODO: should be validated per context type
           return new EXTDisjointTimerQuery(id, this);
         case 'OES_draw_buffers_indexed':
           return new OESDrawBuffersIndexed(id, this);
         case 'OES_vertex_array_object':
           return new OESVertexArrayObject(id, this);
-        case 'OVR_multiview2':
+        case 'OVR_multiview2': {
+          this.fetchParameterWithDefaultValue(GLC.MAX_VIEWS_OVR, 2);
           return new OVRMultiview2(id, this);
-        case 'WEBGL_draw_buffers':
+        }
+        case 'WEBGL_draw_buffers': {
+          this.fetchParameterWithDefaultValue(GLC.MAX_COLOR_ATTACHMENTS_WEBGL, 2);
+          this.fetchParameterWithDefaultValue(GLC.MAX_DRAW_BUFFERS_WEBGL, 2);
           return new WEBGLDrawBuffers(id, this);
+        }
         case 'WEBGL_lose_context':
           return new WEBGLLoseContext(id, this);
         case 'WEBGL_multi_draw':
           return new WEBGLMultiDraw(id, this);
         case 'EXT_texture_filter_anisotropic': {
-          this._parameters[this.MAX_TEXTURE_MAX_ANISOTROPY_EXT] = 2; // default value
-          callFunction(this.canvas.ownerDocument as Document, this, 'getParameter', [this.MAX_TEXTURE_MAX_ANISOTROPY_EXT])
-            .then((result) => (this._parameters[this.MAX_TEXTURE_MAX_ANISOTROPY_EXT] = result))
-            .catch((reason) => {
-              console.warn(`Failed to get WebGL parameter ${this.MAX_TEXTURE_MAX_ANISOTROPY_EXT}`, reason);
-            });
+          this.fetchParameterWithDefaultValue(GLC.MAX_TEXTURE_MAX_ANISOTROPY_EXT, 2);
           return new GenericExtension();
         }
         default:
@@ -1193,143 +1216,287 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glGet.xhtml for GL_TRANSFORM_FEEDBACK_BUFFER_START
 
     switch (target) {
-      case this.TRANSFORM_FEEDBACK_BUFFER_BINDING: {
-        const buffer = this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index];
+      case GLC.TRANSFORM_FEEDBACK_BUFFER_BINDING: {
+        const buffer = this._indexedBuffers[GLC.TRANSFORM_FEEDBACK_BUFFER][index];
         if (buffer) {
           return buffer.buffer;
         }
         return null;
       }
-      case this.TRANSFORM_FEEDBACK_BUFFER_SIZE: {
-        const buffer = this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index];
+      case GLC.TRANSFORM_FEEDBACK_BUFFER_SIZE: {
+        const buffer = this._indexedBuffers[GLC.TRANSFORM_FEEDBACK_BUFFER][index];
         if (buffer) {
           return buffer.size;
         }
         return 0;
       }
-      case this.TRANSFORM_FEEDBACK_BUFFER_START: {
-        const buffer = this._indexedBuffers[this.TRANSFORM_FEEDBACK_BUFFER][index];
+      case GLC.TRANSFORM_FEEDBACK_BUFFER_START: {
+        const buffer = this._indexedBuffers[GLC.TRANSFORM_FEEDBACK_BUFFER][index];
         if (buffer) {
           return buffer.offset;
         }
         return 0;
       }
-      case this.UNIFORM_BUFFER_BINDING: {
-        const buffer = this._indexedBuffers[this.UNIFORM_BUFFER][index];
+      case GLC.UNIFORM_BUFFER_BINDING: {
+        const buffer = this._indexedBuffers[GLC.UNIFORM_BUFFER][index];
         if (buffer) {
           return buffer.buffer;
         }
         return null;
       }
-      case this.UNIFORM_BUFFER_SIZE: {
-        const buffer = this._indexedBuffers[this.UNIFORM_BUFFER][index];
+      case GLC.UNIFORM_BUFFER_SIZE: {
+        const buffer = this._indexedBuffers[GLC.UNIFORM_BUFFER][index];
         if (buffer) {
           return buffer.size;
         }
         return 0;
       }
-      case this.UNIFORM_BUFFER_START: {
-        const buffer = this._indexedBuffers[this.UNIFORM_BUFFER][index];
+      case GLC.UNIFORM_BUFFER_START: {
+        const buffer = this._indexedBuffers[GLC.UNIFORM_BUFFER][index];
         if (buffer) {
           return buffer.offset;
         }
         return 0;
       }
+      case GLC.BLEND_EQUATION_RGB:
+      case GLC.BLEND_EQUATION_ALPHA:
+      case GLC.BLEND_SRC_RGB:
+      case GLC.BLEND_SRC_ALPHA:
+      case GLC.BLEND_DST_RGB:
+      case GLC.BLEND_DST_ALPHA:
+      case GLC.COLOR_WRITEMASK: {
+        if ('OES_draw_buffers_indexed' in this._extensions) {
+          const ext = this._extensions['OES_draw_buffers_indexed'] as OESDrawBuffersIndexed;
+          return ext.getIndexedParameter(target, index);
+        }
+        return null;
+      }
+
       default: {
-        // TODO: not implemented for OES_draw_buffers_indexed
-        //     gl.BLEND_EQUATION_RGB: Returns the RGB blend equation for the draw buffer at index.
-        //     gl.BLEND_EQUATION_ALPHA: Returns the alpha blend equation for the draw buffer at index.
-        //     gl.BLEND_SRC_RGB: Returns the source RGB blend function for the draw buffer at index.
-        //     gl.BLEND_SRC_ALPHA: Returns the source alpha blend function for the draw buffer at index.
-        //     gl.BLEND_DST_RGB: Returns the destination RGB blend function for the draw buffer at index.
-        //     gl.BLEND_DST_ALPHA: Returns the destination alpha blend function for the draw buffer at index.
-        //     gl.COLOR_WRITEMASK: Returns an array containing color components are enabled for the draw buffer at index.
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getIndexedParameter', 'invalid target ' + target);
+        this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getIndexedParameter', 'invalid target ' + target);
         return null;
       }
     }
   }
 
   getInternalformatParameter(target: GLenum, internalformat: GLenum, pname: GLenum): any {
-    // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glGetInternalformativ.xhtml
-    throw new Error('NOT IMPLEMENTED');
+    if (target != GLC.RENDERBUFFER) {
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getInternalformatParameter', 'invalid target ' + target);
+      return null;
+    }
+
+    if (pname != GLC.SAMPLES) {
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getInternalformatParameter', 'invalid pname ' + pname);
+      return null;
+    }
+
+    const param = this._internalformatParameter[internalformat];
+    if (param) {
+      return new Int32Array(param);
+    }
+
+    return new Int32Array(0);
   }
 
+  // TODO: implement:
+  // - SAMPLE_BUFFERS
+  // - DRAW_BUFFER(i)
+  // - WEBGL_draw_buffers: ext.DRAW_BUFFER(i)_WEBGL
   getParameter(pname: GLenum): any {
     if (this._parameters && pname in this._parameters) return this._parameters[pname];
 
     switch (pname) {
-      case this.ACTIVE_TEXTURE: {
+      case GLC.ACTIVE_TEXTURE: {
         return this._activeTexture;
       }
-      case this.TEXTURE_BINDING_2D: {
-        return this._boundTextures[this._activeTexture][this.TEXTURE_2D];
+      case GLC.TEXTURE_BINDING_2D: {
+        return this._boundTextures[this._activeTexture][GLC.TEXTURE_2D];
       }
-      case this.TEXTURE_BINDING_2D_ARRAY: {
-        return this._boundTextures[this._activeTexture][this.TEXTURE_2D_ARRAY];
+      case GLC.TEXTURE_BINDING_2D_ARRAY: {
+        return this._boundTextures[this._activeTexture][GLC.TEXTURE_2D_ARRAY];
       }
-      case this.TEXTURE_BINDING_3D: {
-        return this._boundTextures[this._activeTexture][this.TEXTURE_3D];
+      case GLC.TEXTURE_BINDING_3D: {
+        return this._boundTextures[this._activeTexture][GLC.TEXTURE_3D];
       }
-      case this.TEXTURE_BINDING_CUBE_MAP: {
-        return this._boundTextures[this._activeTexture][this.TEXTURE_CUBE_MAP];
+      case GLC.TEXTURE_BINDING_CUBE_MAP: {
+        return this._boundTextures[this._activeTexture][GLC.TEXTURE_CUBE_MAP];
       }
-      case this.CURRENT_PROGRAM: {
+      case GLC.SAMPLER_BINDING: {
+        return this._boundTextures[this._activeTexture].sampler || null;
+      }
+      case GLC.CURRENT_PROGRAM: {
         return this._bindings.program;
       }
-      case this.VERTEX_ARRAY_BINDING: {
+      case GLC.VERTEX_ARRAY_BINDING: {
         return this._bindings.vertexArray;
       }
-      case this.TRANSFORM_FEEDBACK_BINDING: {
+      case GLC.TRANSFORM_FEEDBACK_BINDING: {
         return this._bindings.transformFeedback;
       }
-      case this.ARRAY_BUFFER_BINDING: {
-        return this._getBoundBuffer(this.ARRAY_BUFFER);
+      case GLC.ARRAY_BUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.ARRAY_BUFFER);
       }
-      case this.ELEMENT_ARRAY_BUFFER_BINDING: {
-        return this._getBoundBuffer(this.ELEMENT_ARRAY_BUFFER);
+      case GLC.ELEMENT_ARRAY_BUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.ELEMENT_ARRAY_BUFFER);
       }
-      case this.COPY_READ_BUFFER_BINDING: {
-        return this._getBoundBuffer(this.COPY_READ_BUFFER);
+      case GLC.COPY_READ_BUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.COPY_READ_BUFFER);
       }
-      case this.COPY_WRITE_BUFFER_BINDING: {
-        return this._getBoundBuffer(this.COPY_WRITE_BUFFER);
+      case GLC.COPY_WRITE_BUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.COPY_WRITE_BUFFER);
       }
-      case this.TRANSFORM_FEEDBACK_BUFFER_BINDING: {
-        return this._getBoundBuffer(this.TRANSFORM_FEEDBACK_BUFFER);
+      case GLC.TRANSFORM_FEEDBACK_BUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.TRANSFORM_FEEDBACK_BUFFER);
       }
-      case this.UNIFORM_BUFFER_BINDING: {
-        return this._getBoundBuffer(this.UNIFORM_BUFFER);
+      case GLC.UNIFORM_BUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.UNIFORM_BUFFER);
       }
-      case this.PIXEL_PACK_BUFFER_BINDING: {
-        return this._getBoundBuffer(this.PIXEL_PACK_BUFFER);
+      case GLC.PIXEL_PACK_BUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.PIXEL_PACK_BUFFER);
       }
-      case this.PIXEL_UNPACK_BUFFER_BINDING: {
-        return this._getBoundBuffer(this.PIXEL_UNPACK_BUFFER);
+      case GLC.PIXEL_UNPACK_BUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.PIXEL_UNPACK_BUFFER);
       }
-      case this.FRAMEBUFFER_BINDING: {
-        return this._getBoundBuffer(this.FRAMEBUFFER);
+      case GLC.FRAMEBUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.FRAMEBUFFER);
       }
-      case this.RENDERBUFFER_BINDING: {
-        return this._getBoundBuffer(this.RENDERBUFFER);
+      case GLC.RENDERBUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.RENDERBUFFER);
       }
-      case this.DRAW_FRAMEBUFFER_BINDING: {
-        return this._getBoundBuffer(this.DRAW_FRAMEBUFFER);
+      case GLC.DRAW_FRAMEBUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.DRAW_FRAMEBUFFER);
       }
-      case this.READ_FRAMEBUFFER_BINDING: {
-        return this._getBoundBuffer(this.READ_FRAMEBUFFER);
+      case GLC.READ_FRAMEBUFFER_BINDING: {
+        return this._getBoundBuffer(GLC.READ_FRAMEBUFFER);
       }
-      case this.MAX_TEXTURE_MAX_ANISOTROPY_EXT: {
+      case GLC.BLEND:
+      case GLC.CULL_FACE:
+      case GLC.DEPTH_TEST:
+      case GLC.DITHER:
+      case GLC.POLYGON_OFFSET_FILL:
+      case GLC.SCISSOR_TEST:
+      case GLC.STENCIL_TEST:
+      case GLC.SAMPLE_ALPHA_TO_COVERAGE:
+      case GLC.SAMPLE_COVERAGE:
+      case GLC.RASTERIZER_DISCARD: {
+        return this.isEnabled(pname);
+      }
+      case GLC.COMPRESSED_TEXTURE_FORMATS: {
+        const formats = [];
+        if ('WEBGL_compressed_texture_s3tc' in this._extensions) {
+          formats.push(GLC.COMPRESSED_RGB_S3TC_DXT1_EXT,
+            GLC.COMPRESSED_RGBA_S3TC_DXT1_EXT,
+            GLC.COMPRESSED_RGBA_S3TC_DXT3_EXT,
+            GLC.COMPRESSED_RGBA_S3TC_DXT5_EXT);
+        }
+        if ('WEBGL_compressed_texture_s3tc_srgb' in this._extensions) {
+          formats.push(GLC.COMPRESSED_SRGB_S3TC_DXT1_EXT,
+            GLC.COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT,
+            GLC.COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT,
+            GLC.COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT);
+        }
+        if ('WEBGL_compressed_texture_etc' in this._extensions) {
+          formats.push(GLC.COMPRESSED_R11_EAC,
+            GLC.COMPRESSED_SIGNED_R11_EAC,
+            GLC.COMPRESSED_RG11_EAC,
+            GLC.COMPRESSED_SIGNED_RG11_EAC,
+            GLC.COMPRESSED_RGB8_ETC2,
+            GLC.COMPRESSED_RGBA8_ETC2_EAC,
+            GLC.COMPRESSED_SRGB8_ETC2,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ETC2_EAC,
+            GLC.COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2,
+            GLC.COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2);
+        }
+        if ('WEBGL_compressed_texture_pvrtc' in this._extensions) {
+          formats.push(GLC.COMPRESSED_RGB_PVRTC_4BPPV1_IMG,
+            GLC.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG,
+            GLC.COMPRESSED_RGB_PVRTC_2BPPV1_IMG,
+            GLC.COMPRESSED_RGBA_PVRTC_2BPPV1_IMG);
+        }
+        if ('WEBGL_compressed_texture_etc1' in this._extensions) {
+          formats.push(GLC.COMPRESSED_RGB_ETC1_WEBGL);
+        }
+        if ('WEBGL_compressed_texture_astc' in this._extensions) {
+          formats.push(GLC.COMPRESSED_RGBA_ASTC_4x4_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_5x4_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_5x5_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_6x5_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_6x6_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_8x5_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_8x6_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_8x8_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_10x5_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_10x6_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_10x6_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_10x10_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_12x10_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR,
+            GLC.COMPRESSED_RGBA_ASTC_12x12_KHR,
+            GLC.COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR);
+        }
+        if ('EXT_texture_compression_bptc' in this._extensions) {
+          formats.push(GLC.COMPRESSED_RGBA_BPTC_UNORM_EXT,
+            GLC.COMPRESSED_SRGB_ALPHA_BPTC_UNORM_EXT,
+            GLC.COMPRESSED_RGB_BPTC_SIGNED_FLOAT_EXT,
+            GLC.COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT);
+        }
+        return formats;
+      }
+      case GLC.MAX_TEXTURE_MAX_ANISOTROPY_EXT: {
         if (!('EXT_texture_filter_anisotropic' in this._extensions)) {
           // WebGL: INVALID_ENUM: getParameter: invalid parameter name, EXT_texture_filter_anisotropic not enabled
-          this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getParameter', 'invalid parameter name, EXT_texture_filter_anisotropic not enabled');
+          this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getParameter', 'invalid parameter name, EXT_texture_filter_anisotropic not enabled');
+        }
+        return null;
+      }
+      case GLC.MAX_COLOR_ATTACHMENTS_WEBGL:
+      case GLC.MAX_DRAW_BUFFERS_WEBGL: {
+        if (!('WEBGL_draw_buffers' in this._extensions)) {
+          this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getParameter', 'invalid parameter name, WEBGL_draw_buffers not enabled');
+        }
+        return null;
+      }
+      case GLC.FRAGMENT_SHADER_DERIVATIVE_HINT_OES: {
+        if (!('OES_standard_derivatives' in this._extensions)) {
+          this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getParameter', 'invalid parameter name, OES_standard_derivatives not enabled');
+        }
+        return null;
+      }
+      case GLC.MAX_VIEWS_OVR: {
+        if (!('OVR_multiview2' in this._extensions)) {
+          this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getParameter', 'invalid parameter name, OVR_multiview2 not enabled');
+        }
+        return null;
+      }
+      case GLC.VERTEX_ARRAY_BINDING_OES: { // See: GLExtension OESVertexArrayObject#bindVertexArrayOES
+        if (!('OES_vertex_array_object' in this._extensions)) {
+          this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getParameter', 'invalid parameter name, OES_vertex_array_object not enabled');
+        }
+        return null;
+      }
+      case GLC.TIMESTAMP_EXT:
+      case GLC.GPU_DISJOINT_EXT: {
+        if (!('EXT_disjoint_timer_query' in this._extensions) && !('EXT_disjoint_timer_query_webgl2' in this._extensions)) {
+          this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getParameter', 'invalid parameter name, EXT_disjoint_timer_query / EXT_disjoint_timer_query_webgl2 not enabled');
         }
         return null;
       }
       default:
         if (!Object.values(this).includes(pname)) {
           // WebGL: INVALID_ENUM: getParameter: invalid parameter name
-          this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getParameter', 'invalid parameter name');
+          this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getParameter', 'invalid parameter name');
           return null; // unknown parameter
         }
         // known parameter, but not loaded
@@ -1343,20 +1510,20 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   getProgramParameter(program: GLProgram, pname: GLenum): any {
     switch (pname) {
-      case this.ACTIVE_UNIFORMS: // Returns a GLint indicating the number of active uniform variables to a program.
+      case GLC.ACTIVE_UNIFORMS: // Returns a GLint indicating the number of active uniform variables to a program.
         return program.activeUniforms;
-      case this.ACTIVE_ATTRIBUTES: // Returns a GLint indicating the number of active attribute variables to a program.
+      case GLC.ACTIVE_ATTRIBUTES: // Returns a GLint indicating the number of active attribute variables to a program.
         return program.activeAttributes;
-      case this.DELETE_STATUS: // Returns a GLboolean indicating whether or not the program is flagged for deletion.
+      case GLC.DELETE_STATUS: // Returns a GLboolean indicating whether or not the program is flagged for deletion.
         return program.isDeleted(); // See #deleteProgram
-      case this.ATTACHED_SHADERS: // Returns a GLint indicating the number of attached shaders to a program.
+      case GLC.ATTACHED_SHADERS: // Returns a GLint indicating the number of attached shaders to a program.
         return program.shaders.length;
-      case this.TRANSFORM_FEEDBACK_BUFFER_MODE: // Returns a GLenum indicating the buffer mode when transform feedback is active. May be gl.SEPARATE_ATTRIBS or gl.INTERLEAVED_ATTRIBS.
-      case this.TRANSFORM_FEEDBACK_VARYINGS: // Returns a GLint indicating the number of varying variables to capture in transform feedback mode.
-      case this.ACTIVE_UNIFORM_BLOCKS: // Returns a GLint indicating the number of uniform blocks containing active uniforms.
+      case GLC.TRANSFORM_FEEDBACK_BUFFER_MODE: // Returns a GLenum indicating the buffer mode when transform feedback is active. May be gl.SEPARATE_ATTRIBS or gl.INTERLEAVED_ATTRIBS.
+      case GLC.TRANSFORM_FEEDBACK_VARYINGS: // Returns a GLint indicating the number of varying variables to capture in transform feedback mode.
+      case GLC.ACTIVE_UNIFORM_BLOCKS: // Returns a GLint indicating the number of uniform blocks containing active uniforms.
         throw new Error(`NOT YET IMPLEMENTED: ${pname}`);
-      case this.VALIDATE_STATUS: // Returns a GLboolean indicating whether or not the last validation operation was successful.
-      case this.LINK_STATUS: // Returns a GLboolean indicating whether or not the last link operation was successful.
+      case GLC.VALIDATE_STATUS: // Returns a GLboolean indicating whether or not the last validation operation was successful.
+      case GLC.LINK_STATUS: // Returns a GLboolean indicating whether or not the last link operation was successful.
         // optimistically return success; client will abort on an actual error. we assume an error-free async workflow
         return true;
       default:
@@ -1377,7 +1544,17 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   getSamplerParameter(sampler: vGLSampler, pname: GLenum): any {
-    throw new Error('NOT IMPLEMENTED');
+    if (!sampler || sampler.isDeleted()) {
+      this._webglError(GLC.INVALID_OPERATION, 'INVALID_OPERATION', 'getSamplerParameter', 'invalid or deleted sampler');
+      return null;
+    }
+
+    if (!(pname in sampler.parameters)) {
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getSamplerParameter', 'invalid pname - ' + pname);
+      return null;
+    }
+
+    return sampler.parameters[pname].value;
   }
 
   getShaderInfoLog(shader: GLShader): string | null {
@@ -1386,21 +1563,21 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   getShaderParameter(shader: GLShader, pname: GLenum): any {
     if (!shader) {
-      this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', 'getShaderParameter', 'invalid shader');
+      this._webglError(GLC.INVALID_OPERATION, 'INVALID_OPERATION', 'getShaderParameter', 'invalid shader');
       return null;
     }
 
     switch (pname) {
-      case this.SHADER_TYPE:
+      case GLC.SHADER_TYPE:
         return shader.type;
-      case this.DELETE_STATUS:
+      case GLC.DELETE_STATUS:
         return shader.isDeleted(); // See deleteShader
-      case this.COMPILE_STATUS: {
+      case GLC.COMPILE_STATUS: {
         // optimistically return success; client will abort on an actual error. we assume an error-free async workflow
         return true;
       }
       default: {
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getShaderParameter', 'invalid pname - ' + pname);
+        this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getShaderParameter', 'invalid pname - ' + pname);
         return null;
       }
     }
@@ -1408,22 +1585,22 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   getShaderPrecisionFormat(shadertype: GLenum, precisiontype: GLenum): WebGLShaderPrecisionFormat | null {
     // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/getShaderPrecisionFormat
-    if (shadertype != this.FRAGMENT_SHADER && shadertype != this.VERTEX_SHADER) {
+    if (shadertype != GLC.FRAGMENT_SHADER && shadertype != GLC.VERTEX_SHADER) {
       // WebGL: INVALID_ENUM: getShaderPrecisionFormat: invalid shadertype
-      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getShaderPrecisionFormat', 'invalid shadertype - ' + shadertype);
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getShaderPrecisionFormat', 'invalid shadertype - ' + shadertype);
       return null;
     }
 
     if (
-      this.LOW_FLOAT != precisiontype &&
-      this.MEDIUM_FLOAT != precisiontype &&
-      this.HIGH_FLOAT != precisiontype &&
-      this.LOW_INT != precisiontype &&
-      this.MEDIUM_INT != precisiontype &&
-      this.HIGH_INT != precisiontype
+      GLC.LOW_FLOAT != precisiontype &&
+      GLC.MEDIUM_FLOAT != precisiontype &&
+      GLC.HIGH_FLOAT != precisiontype &&
+      GLC.LOW_INT != precisiontype &&
+      GLC.MEDIUM_INT != precisiontype &&
+      GLC.HIGH_INT != precisiontype
     ) {
       // WebGL: INVALID_ENUM: getShaderPrecisionFormat: invalid precisiontype
-      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getShaderPrecisionFormat', 'invalid precisiontype - ' + precisiontype);
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getShaderPrecisionFormat', 'invalid precisiontype - ' + precisiontype);
       return null;
     }
 
@@ -1434,7 +1611,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
       }
     }
 
-    this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', 'getShaderPrecisionFormat', 'shader compiler is not supported');
+    this._webglError(GLC.INVALID_OPERATION, 'INVALID_OPERATION', 'getShaderPrecisionFormat', 'shader compiler is not supported');
     return null;
   }
 
@@ -1454,19 +1631,19 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     const texture = this._boundTextures[this._activeTexture][target];
     if (!texture) {
       // WebGL: INVALID_OPERATION: getTexParameter: no texture bound to target
-      this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', 'getTexParameter', 'no texture bound to target ' + target);
+      this._webglError(GLC.INVALID_OPERATION, 'INVALID_OPERATION', 'getTexParameter', 'no texture bound to target ' + target);
       return null;
     }
     if (pname in texture.parameters) {
-      if (pname === this.TEXTURE_MAX_ANISOTROPY_EXT && !('EXT_texture_filter_anisotropic' in this._extensions)) {
+      if (pname === GLC.TEXTURE_MAX_ANISOTROPY_EXT && !('EXT_texture_filter_anisotropic' in this._extensions)) {
         // WebGL: INVALID_ENUM: getTexParameter: invalid parameter name, EXT_texture_filter_anisotropic not enabled
-        this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getTexParameter', 'invalid parameter name, EXT_texture_filter_anisotropic not enabled');
+        this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getTexParameter', 'invalid parameter name, EXT_texture_filter_anisotropic not enabled');
         return null;
       }
       return texture.parameters[pname];
     } else {
       // WebGL: INVALID_ENUM: getTexParameter: invalid parameter name
-      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', 'getTexParameter', 'invalid parameter name ' + pname);
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'getTexParameter', 'invalid parameter name ' + pname);
       return null;
     }
   }
@@ -1516,6 +1693,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   hint(target: GLenum, mode: GLenum): void {
     this[TransferrableKeys.mutated]('hint', arguments);
+    this._parameters[target] = mode;
   }
 
   invalidateFramebuffer(target: GLenum, attachments: GLenum[]): void;
@@ -1583,7 +1761,10 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
   }
 
   lineWidth(width: GLfloat): void {
-    this[TransferrableKeys.mutated]('lineWidth', arguments);
+    if (this._parameters[GLC.LINE_WIDTH] != width) {
+      this[TransferrableKeys.mutated]('lineWidth', arguments);
+      this._parameters[GLC.LINE_WIDTH] = width;
+    }
   }
 
   linkProgram(program: GLProgram): void {
@@ -1593,18 +1774,25 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   pauseTransformFeedback(): void {
     this[TransferrableKeys.mutated]('pauseTransformFeedback', []);
+    this._parameters[GLC.TRANSFORM_FEEDBACK_PAUSED] = true;
   }
 
   pixelStorei(pname: GLenum, param: GLint | GLboolean): void {
-    this[TransferrableKeys.mutated]('pixelStorei', arguments);
+    if (this._parameters[pname] != param) {
+      this[TransferrableKeys.mutated]('pixelStorei', arguments);
+      this._parameters[pname] = param;
+    }
   }
 
   polygonOffset(factor: GLfloat, units: GLfloat): void {
     this[TransferrableKeys.mutated]('polygonOffset', arguments);
+    this._parameters[GLC.POLYGON_OFFSET_FACTOR] = factor;
+    this._parameters[GLC.POLYGON_OFFSET_UNITS] = units;
   }
 
   readBuffer(src: GLenum): void {
     this[TransferrableKeys.mutated]('readBuffer', arguments);
+    this._parameters[GLC.READ_BUFFER] = src;
   }
 
   readPixels(x: GLint, y: GLint, width: GLsizei, height: GLsizei, format: GLenum, type: GLenum, dstData: ArrayBufferView | null): void;
@@ -1633,22 +1821,30 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   resumeTransformFeedback(): void {
     this[TransferrableKeys.mutated]('resumeTransformFeedback', []);
+    this._parameters[GLC.TRANSFORM_FEEDBACK_PAUSED] = false;
   }
 
   sampleCoverage(value: GLclampf, invert: GLboolean): void {
     this[TransferrableKeys.mutated]('sampleCoverage', arguments);
+    this._parameters[GLC.SAMPLE_COVERAGE_VALUE] = value;
+    this._parameters[GLC.SAMPLE_COVERAGE_INVERT] = invert;
   }
 
   samplerParameterf(sampler: vGLSampler, pname: GLenum, param: GLfloat): void {
-    this[TransferrableKeys.mutated]('samplerParameterf', arguments);
+    if (this._samplerParameter(sampler, pname, param, 'samplerParameterf')) {
+      this[TransferrableKeys.mutated]('samplerParameterf', arguments);
+    }
   }
 
   samplerParameteri(sampler: vGLSampler, pname: GLenum, param: GLint): void {
-    this[TransferrableKeys.mutated]('samplerParameteri', arguments);
+    if (this._samplerParameter(sampler, pname, param, 'samplerParameteri')) {
+      this[TransferrableKeys.mutated]('samplerParameteri', arguments);
+    }
   }
 
   scissor(x: GLint, y: GLint, width: GLsizei, height: GLsizei): void {
     this[TransferrableKeys.mutated]('scissor', arguments);
+    this._parameters[GLC.SCISSOR_BOX] = [x, y, width, height];
   }
 
   shaderSource(shader: GLShader, source: string): void {
@@ -1658,26 +1854,124 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   stencilFunc(func: GLenum, ref: GLint, mask: GLuint): void {
     this[TransferrableKeys.mutated]('stencilFunc', arguments);
+    this._parameters[GLC.STENCIL_FUNC] = func;
+    this._parameters[GLC.STENCIL_REF] = ref;
+    this._parameters[GLC.STENCIL_VALUE_MASK] = mask;
+
+    this._parameters[GLC.STENCIL_BACK_FUNC] = func;
+    this._parameters[GLC.STENCIL_BACK_REF] = ref;
+    this._parameters[GLC.STENCIL_BACK_VALUE_MASK] = mask;
   }
 
   stencilFuncSeparate(face: GLenum, func: GLenum, ref: GLint, mask: GLuint): void {
+    if (face != GLC.FRONT && face != GLC.BACK && face != GLC.FRONT_AND_BACK) {
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'stencilFuncSeparate', 'invalid face ' + face);
+      return;
+    }
+
     this[TransferrableKeys.mutated]('stencilFuncSeparate', arguments);
+
+    switch (face) {
+      case GLC.FRONT: {
+        this._parameters[GLC.STENCIL_FUNC] = func;
+        this._parameters[GLC.STENCIL_REF] = ref;
+        this._parameters[GLC.STENCIL_VALUE_MASK] = mask;
+        break;
+      }
+      case GLC.BACK: {
+        this._parameters[GLC.STENCIL_BACK_FUNC] = func;
+        this._parameters[GLC.STENCIL_BACK_REF] = ref;
+        this._parameters[GLC.STENCIL_BACK_VALUE_MASK] = mask;
+        break;
+      }
+      case GLC.FRONT_AND_BACK: {
+        this._parameters[GLC.STENCIL_FUNC] = func;
+        this._parameters[GLC.STENCIL_REF] = ref;
+        this._parameters[GLC.STENCIL_VALUE_MASK] = mask;
+
+        this._parameters[GLC.STENCIL_BACK_FUNC] = func;
+        this._parameters[GLC.STENCIL_BACK_REF] = ref;
+        this._parameters[GLC.STENCIL_BACK_VALUE_MASK] = mask;
+        break;
+      }
+    }
   }
 
   stencilMask(mask: GLuint): void {
     this[TransferrableKeys.mutated]('stencilMask', arguments);
+    this._parameters[GLC.STENCIL_BACK_WRITEMASK] = mask;
+    this._parameters[GLC.STENCIL_WRITEMASK] = mask;
   }
 
   stencilMaskSeparate(face: GLenum, mask: GLuint): void {
+    if (face != GLC.FRONT && face != GLC.BACK && face != GLC.FRONT_AND_BACK) {
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'stencilMaskSeparate', 'invalid face ' + face);
+      return;
+    }
+
     this[TransferrableKeys.mutated]('stencilMaskSeparate', arguments);
+
+    switch (face) {
+      case GLC.FRONT: {
+        this._parameters[GLC.STENCIL_WRITEMASK] = mask;
+        break;
+      }
+      case GLC.BACK: {
+        this._parameters[GLC.STENCIL_BACK_WRITEMASK] = mask;
+        break;
+      }
+      case GLC.FRONT_AND_BACK: {
+        this._parameters[GLC.STENCIL_BACK_WRITEMASK] = mask;
+        this._parameters[GLC.STENCIL_WRITEMASK] = mask;
+        break;
+      }
+    }
   }
 
   stencilOp(fail: GLenum, zfail: GLenum, zpass: GLenum): void {
     this[TransferrableKeys.mutated]('stencilOp', arguments);
+
+    this._parameters[GLC.STENCIL_FAIL] = fail;
+    this._parameters[GLC.STENCIL_PASS_DEPTH_FAIL] = zfail;
+    this._parameters[GLC.STENCIL_PASS_DEPTH_PASS] = zpass;
+
+    this._parameters[GLC.STENCIL_BACK_FAIL] = fail;
+    this._parameters[GLC.STENCIL_BACK_PASS_DEPTH_FAIL] = zfail;
+    this._parameters[GLC.STENCIL_BACK_PASS_DEPTH_PASS] = zpass;
   }
 
   stencilOpSeparate(face: GLenum, fail: GLenum, zfail: GLenum, zpass: GLenum): void {
+    if (face != GLC.FRONT && face != GLC.BACK && face != GLC.FRONT_AND_BACK) {
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', 'stencilOpSeparate', 'invalid face ' + face);
+      return;
+    }
+
     this[TransferrableKeys.mutated]('stencilOpSeparate', arguments);
+
+    switch (face) {
+      case GLC.FRONT: {
+        this._parameters[GLC.STENCIL_FAIL] = fail;
+        this._parameters[GLC.STENCIL_PASS_DEPTH_FAIL] = zfail;
+        this._parameters[GLC.STENCIL_PASS_DEPTH_PASS] = zpass;
+        break;
+      }
+      case GLC.BACK: {
+        this._parameters[GLC.STENCIL_BACK_FAIL] = fail;
+        this._parameters[GLC.STENCIL_BACK_PASS_DEPTH_FAIL] = zfail;
+        this._parameters[GLC.STENCIL_BACK_PASS_DEPTH_PASS] = zpass;
+        break;
+      }
+      case GLC.FRONT_AND_BACK: {
+        this._parameters[GLC.STENCIL_FAIL] = fail;
+        this._parameters[GLC.STENCIL_PASS_DEPTH_FAIL] = zfail;
+        this._parameters[GLC.STENCIL_PASS_DEPTH_PASS] = zpass;
+
+        this._parameters[GLC.STENCIL_BACK_FAIL] = fail;
+        this._parameters[GLC.STENCIL_BACK_PASS_DEPTH_FAIL] = zfail;
+        this._parameters[GLC.STENCIL_BACK_PASS_DEPTH_PASS] = zpass;
+        break;
+      }
+    }
   }
 
   texImage2D(
@@ -2266,6 +2560,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   viewport(x: GLint, y: GLint, width: GLsizei, height: GLsizei): void {
     this[TransferrableKeys.mutated]('viewport', arguments);
+    this._parameters[GLC.VIEWPORT] = [x, y, width, height];
   }
 
   waitSync(sync: vGLSync, flags: GLbitfield, timeout: GLint64): void {
@@ -2307,7 +2602,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
       if (candidate.isDeleted()) {
         // WebGL: INVALID_OPERATION: bindBuffer: attempt to use a deleted object
-        this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', operation, 'attempt to use a deleted object');
+        this._webglError(GLC.INVALID_OPERATION, 'INVALID_OPERATION', operation, 'attempt to use a deleted object');
         return false;
       }
     }
@@ -2316,18 +2611,18 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
   private _getBoundBuffer(target: GLenum): vGLBuffer | null {
     switch (target) {
-      case this.ARRAY_BUFFER:
-      case this.ELEMENT_ARRAY_BUFFER:
-      case this.COPY_READ_BUFFER:
-      case this.COPY_WRITE_BUFFER:
-      case this.TRANSFORM_FEEDBACK_BUFFER:
-      case this.UNIFORM_BUFFER:
-      case this.PIXEL_PACK_BUFFER:
-      case this.PIXEL_UNPACK_BUFFER:
-      case this.FRAMEBUFFER:
-      case this.RENDERBUFFER:
-      case this.DRAW_FRAMEBUFFER:
-      case this.READ_FRAMEBUFFER:
+      case GLC.ARRAY_BUFFER:
+      case GLC.ELEMENT_ARRAY_BUFFER:
+      case GLC.COPY_READ_BUFFER:
+      case GLC.COPY_WRITE_BUFFER:
+      case GLC.TRANSFORM_FEEDBACK_BUFFER:
+      case GLC.UNIFORM_BUFFER:
+      case GLC.PIXEL_PACK_BUFFER:
+      case GLC.PIXEL_UNPACK_BUFFER:
+      case GLC.FRAMEBUFFER:
+      case GLC.RENDERBUFFER:
+      case GLC.DRAW_FRAMEBUFFER:
+      case GLC.READ_FRAMEBUFFER:
         return this._buffers[target] || null;
       default:
         throw new Error(`Unexpected target: ${target}`);
@@ -2393,7 +2688,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     const texture = this._boundTextures[this._activeTexture][target];
     if (!texture) {
       // WebGL: INVALID_OPERATION: texParameter: no texture bound to target
-      this._webglError(this.INVALID_OPERATION, 'INVALID_OPERATION', operation, 'no texture bound to target ' + target);
+      this._webglError(GLC.INVALID_OPERATION, 'INVALID_OPERATION', operation, 'no texture bound to target ' + target);
       return false;
     }
 
@@ -2401,7 +2696,7 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
 
     if (!parameter) {
       // WebGL: INVALID_ENUM: texParameterf: invalid parameter name
-      this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', operation, 'invalid parameter name ' + pname);
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', operation, 'invalid parameter name ' + pname);
       return false;
     }
 
@@ -2410,42 +2705,63 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     }
 
     switch (pname) {
-      case this.TEXTURE_MAG_FILTER:
-      case this.TEXTURE_MIN_FILTER:
-      case this.TEXTURE_WRAP_S:
-      case this.TEXTURE_WRAP_T:
-      case this.TEXTURE_WRAP_R:
-      case this.TEXTURE_COMPARE_FUNC:
-      case this.TEXTURE_COMPARE_MODE: {
+      case GLC.TEXTURE_MAG_FILTER:
+      case GLC.TEXTURE_MIN_FILTER:
+      case GLC.TEXTURE_WRAP_S:
+      case GLC.TEXTURE_WRAP_T:
+      case GLC.TEXTURE_WRAP_R:
+      case GLC.TEXTURE_COMPARE_FUNC:
+      case GLC.TEXTURE_COMPARE_MODE: {
         if (!parameter.allowed.includes(param)) {
-          this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', operation, 'Texture param not recognized. Invalid parameter ' + param);
+          this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', operation, 'Texture param not recognized. Invalid parameter ' + param);
           return false;
         }
         break;
       }
-      case this.TEXTURE_BASE_LEVEL:
-      case this.TEXTURE_MAX_LEVEL: {
+      case GLC.TEXTURE_BASE_LEVEL:
+      case GLC.TEXTURE_MAX_LEVEL: {
         if (param < 0) {
           // GL_INVALID_VALUE: Level of detail outside of range.
           // GL_INVALID_VALUE: Base level must be at least 0.
-          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', operation, 'Level must be at least 0. Value: ' + param);
+          this._webglError(GLC.INVALID_VALUE, 'INVALID_VALUE', operation, 'Level must be at least 0. Value: ' + param);
           return false;
         }
         break;
       }
-      case this.TEXTURE_MAX_ANISOTROPY_EXT: {
+      case GLC.TEXTURE_MAX_ANISOTROPY_EXT: {
         if (!('EXT_texture_filter_anisotropic' in this._extensions)) {
           // WebGL: INVALID_ENUM: texParameter: invalid parameter, EXT_texture_filter_anisotropic not enabled
-          this._webglError(this.INVALID_ENUM, 'INVALID_ENUM', operation, 'invalid parameter, EXT_texture_filter_anisotropic not enabled');
+          this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', operation, 'invalid parameter, EXT_texture_filter_anisotropic not enabled');
           return false;
         }
         if (param <= 0) {
           // GL_INVALID_VALUE: Parameter outside of bounds.
-          this._webglError(this.INVALID_VALUE, 'INVALID_VALUE', operation, 'Parameter outside of bounds. Value: ' + param);
+          this._webglError(GLC.INVALID_VALUE, 'INVALID_VALUE', operation, 'Parameter outside of bounds. Value: ' + param);
           return false;
         }
         break;
       }
+    }
+
+    parameter.value = param;
+    return true;
+  }
+
+  private _samplerParameter(sampler: vGLSampler, pname: GLenum, param: GLfloat | GLint, operation: string): boolean {
+    if (!sampler || sampler.isDeleted()) {
+      this._webglError(GLC.INVALID_OPERATION, 'INVALID_OPERATION', operation, 'invalid or deleted sampler');
+      return false;
+    }
+
+    const parameter = sampler.parameters[pname];
+    if (!parameter) {
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', operation, 'invalid parameter name ' + pname);
+      return false;
+    }
+
+    if (parameter.allowed && !parameter.allowed.includes(param)) {
+      this._webglError(GLC.INVALID_ENUM, 'INVALID_ENUM', operation, 'Sampler param not recognized. Invalid parameter ' + param);
+      return false;
     }
 
     parameter.value = param;
@@ -2457,48 +2773,186 @@ export class WebGLRenderingContextPolyfill extends GLConstants implements WebGL2
     this.canvas.addEventListener('webglcontextlost', () => {
       // TODO: Should polyfill ignore all operations in case context is lost?
       context._contextLost = true;
-      context._webglError(context.CONTEXT_LOST_WEBGL, 'CONTEXT_LOST_WEBGL', '', 'CONTEXT_LOST_WEBGL');
+      context._webglError(GLC.CONTEXT_LOST_WEBGL, 'CONTEXT_LOST_WEBGL', '', 'CONTEXT_LOST_WEBGL');
     });
 
     this.canvas.addEventListener('webglcontextrestored', () => {
       context._contextLost = false;
-      if (context._error == context.CONTEXT_LOST_WEBGL) {
-        context._error = context.NO_ERROR;
+      if (context._error == GLC.CONTEXT_LOST_WEBGL) {
+        context._error = GLC.NO_ERROR;
       }
     });
   }
 
-  private initializeParameters() {
-    this.requiredParams
-        .filter((value) => !(value in this._parameters))
-        .forEach((parameter) => {
-          callFunction(this.canvas.ownerDocument as Document, this, 'getParameter', [parameter])
-              .then((result) => (this._parameters[parameter] = result))
-              .catch((reason) => {
-                console.warn(`Failed to get WebGL parameter ${parameter}`, reason);
-              });
-        });
+  private initializeParameters(type: CONTEXT_TYPE) {
+    const required = type == 'webgl' ? WebGLRenderingContextPolyfill.WEBGL_REQUIRED_PARAMS : WebGLRenderingContextPolyfill.WEBGL2_REQUIRED_PARAMS;
+
+    required
+      .filter((value) => !(value in this._parameters))
+      .forEach((parameter) => {
+        callFunction(this.canvas.ownerDocument as Document, this, 'getParameter', [parameter])
+          .then((result) => {
+            this._parameters[parameter] = result;
+          })
+          .catch((reason) => {
+            console.warn(`Failed to get WebGL parameter ${parameter}`, reason);
+          });
+      });
   }
 
   private initializeSupportedExtensions() {
     if (this._supportedExtensions.length == 0) {
       callFunction(this.canvas.ownerDocument as Document, this, 'getSupportedExtensions', [])
-          .then((result) => this._supportedExtensions.push(...result))
-          .catch((reason) => {
-            console.warn('Failed to get WebGL supported extensions', reason);
-          });
+        .then((result) => this._supportedExtensions.push(...result))
+        .catch((reason) => {
+          console.warn('Failed to get WebGL supported extensions', reason);
+        });
     }
   }
 
   private initializeContextAttributes(contextAttributes: WebGLContextAttributes | undefined) {
     if (!contextAttributes) {
       callFunction(this.canvas.ownerDocument as Document, this, 'getContextAttributes', [])
-          .then((result) => (this._contextAttributes = result))
-          .catch((reason) => {
-            console.warn('Failed to get WebGL context attributes', reason);
-          });
+        .then((result) => (this._contextAttributes = result))
+        .catch((reason) => {
+          console.warn('Failed to get WebGL context attributes', reason);
+        });
     } else {
       this._contextAttributes = contextAttributes;
     }
   }
+
+  private fetchParameterWithDefaultValue(param: number, defaultValue: any) {
+    this._parameters[param] = defaultValue; // default value
+    callFunction(this.canvas.ownerDocument as Document, this, 'getParameter', [param])
+      .then((result) => {
+        this._parameters[param] = result;
+      })
+      .catch((reason) => {
+        console.warn(`Failed to get WebGL parameter ${param}`, reason);
+      });
+  }
+
+  private static readonly WEBGL_REQUIRED_PARAMS: number[] = [
+    GLC.VIEWPORT,
+    GLC.VERSION,
+    GLC.RENDERER,
+    GLC.VENDOR,
+    GLC.SHADING_LANGUAGE_VERSION,
+    GLC.RED_BITS,
+    GLC.GREEN_BITS,
+    GLC.BLUE_BITS,
+    GLC.ALPHA_BITS,
+    GLC.DEPTH_BITS,
+    GLC.STENCIL_BITS,
+    GLC.SUBPIXEL_BITS,
+    GLC.LINE_WIDTH,
+    GLC.FRONT_FACE,
+    GLC.CULL_FACE_MODE,
+    GLC.IMPLEMENTATION_COLOR_READ_FORMAT,
+    GLC.IMPLEMENTATION_COLOR_READ_TYPE,
+    GLC.PACK_ALIGNMENT,
+    GLC.UNPACK_ALIGNMENT,
+    GLC.UNPACK_FLIP_Y_WEBGL,
+    GLC.UNPACK_PREMULTIPLY_ALPHA_WEBGL,
+    GLC.UNPACK_COLORSPACE_CONVERSION_WEBGL,
+    GLC.GENERATE_MIPMAP_HINT,
+    GLC.SCISSOR_BOX,
+    GLC.SAMPLE_COVERAGE_VALUE,
+    GLC.SAMPLE_COVERAGE_INVERT,
+    GLC.SAMPLES,
+    GLC.DEPTH_WRITEMASK,
+    GLC.DEPTH_CLEAR_VALUE,
+    GLC.DEPTH_FUNC,
+    GLC.DEPTH_RANGE,
+    GLC.POLYGON_OFFSET_FACTOR,
+    GLC.POLYGON_OFFSET_UNITS,
+    GLC.COLOR_CLEAR_VALUE,
+    GLC.COLOR_WRITEMASK,
+    GLC.BLEND_COLOR,
+    GLC.BLEND_DST_ALPHA,
+    GLC.BLEND_DST_RGB,
+    GLC.BLEND_EQUATION,
+    GLC.BLEND_EQUATION_ALPHA,
+    GLC.BLEND_EQUATION_RGB,
+    GLC.BLEND_SRC_ALPHA,
+    GLC.BLEND_SRC_RGB,
+
+    GLC.STENCIL_WRITEMASK,
+    GLC.STENCIL_BACK_WRITEMASK,
+
+    GLC.STENCIL_FUNC,
+    GLC.STENCIL_VALUE_MASK,
+    GLC.STENCIL_REF,
+    GLC.STENCIL_BACK_FUNC,
+    GLC.STENCIL_BACK_VALUE_MASK,
+    GLC.STENCIL_BACK_REF,
+
+    GLC.STENCIL_CLEAR_VALUE,
+
+    GLC.STENCIL_FAIL,
+    GLC.STENCIL_PASS_DEPTH_FAIL,
+    GLC.STENCIL_PASS_DEPTH_PASS,
+    GLC.STENCIL_BACK_FAIL,
+    GLC.STENCIL_BACK_PASS_DEPTH_FAIL,
+    GLC.STENCIL_BACK_PASS_DEPTH_PASS,
+
+    GLC.MAX_RENDERBUFFER_SIZE,
+    GLC.MAX_COMBINED_TEXTURE_IMAGE_UNITS,
+    GLC.MAX_CUBE_MAP_TEXTURE_SIZE,
+    GLC.MAX_FRAGMENT_UNIFORM_VECTORS,
+    GLC.MAX_TEXTURE_IMAGE_UNITS,
+    GLC.MAX_TEXTURE_SIZE,
+    GLC.MAX_VARYING_VECTORS,
+    GLC.MAX_VERTEX_ATTRIBS,
+    GLC.MAX_VERTEX_TEXTURE_IMAGE_UNITS,
+    GLC.MAX_VERTEX_UNIFORM_VECTORS,
+    GLC.ALIASED_LINE_WIDTH_RANGE,
+    GLC.ALIASED_POINT_SIZE_RANGE,
+    GLC.MAX_VIEWPORT_DIMS,
+  ];
+
+  private static readonly WEBGL2_REQUIRED_PARAMS: number[] = [
+    ...WebGLRenderingContextPolyfill.WEBGL_REQUIRED_PARAMS,
+    GLC.PACK_ROW_LENGTH,
+    GLC.PACK_SKIP_PIXELS,
+    GLC.PACK_SKIP_ROWS,
+    GLC.UNPACK_ROW_LENGTH,
+    GLC.UNPACK_IMAGE_HEIGHT,
+    GLC.UNPACK_SKIP_PIXELS,
+    GLC.UNPACK_SKIP_ROWS,
+    GLC.UNPACK_SKIP_IMAGES,
+    GLC.FRAGMENT_SHADER_DERIVATIVE_HINT,
+    GLC.READ_BUFFER,
+
+    GLC.MAX_VERTEX_UNIFORM_COMPONENTS,
+    GLC.MAX_VERTEX_UNIFORM_BLOCKS,
+    GLC.MAX_VERTEX_OUTPUT_COMPONENTS,
+    GLC.MAX_VARYING_COMPONENTS,
+    GLC.MAX_FRAGMENT_UNIFORM_COMPONENTS,
+    GLC.MAX_FRAGMENT_UNIFORM_BLOCKS,
+    GLC.MAX_FRAGMENT_INPUT_COMPONENTS,
+    GLC.MIN_PROGRAM_TEXEL_OFFSET,
+    GLC.MAX_PROGRAM_TEXEL_OFFSET,
+    GLC.MAX_DRAW_BUFFERS,
+    GLC.MAX_COLOR_ATTACHMENTS,
+    GLC.MAX_SAMPLES,
+    GLC.MAX_3D_TEXTURE_SIZE,
+    GLC.MAX_ARRAY_TEXTURE_LAYERS,
+    GLC.MAX_CLIENT_WAIT_TIMEOUT_WEBGL,
+    GLC.MAX_TEXTURE_LOD_BIAS,
+    GLC.MAX_UNIFORM_BUFFER_BINDINGS,
+    GLC.MAX_UNIFORM_BLOCK_SIZE,
+    GLC.UNIFORM_BUFFER_OFFSET_ALIGNMENT,
+    GLC.MAX_COMBINED_UNIFORM_BLOCKS,
+    GLC.MAX_COMBINED_VERTEX_UNIFORM_COMPONENTS,
+    GLC.MAX_COMBINED_FRAGMENT_UNIFORM_COMPONENTS,
+    GLC.MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS,
+    GLC.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS,
+    GLC.MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS,
+    GLC.MAX_ELEMENT_INDEX,
+    GLC.MAX_ELEMENTS_INDICES,
+    GLC.MAX_ELEMENTS_VERTICES,
+    GLC.MAX_SERVER_WAIT_TIMEOUT,
+  ];
 }

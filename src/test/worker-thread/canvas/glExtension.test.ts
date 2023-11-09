@@ -32,7 +32,7 @@ class FakeOffscreenCanvas {
 
 test('should access all properties of WEBGLDrawBuffers', (t) => {
     const { element } = t.context;
-    const context = new WebGLRenderingContextPolyfill(1, element, undefined);
+    const context = new WebGLRenderingContextPolyfill('webgl2', 1, element, undefined);
     const extension = new WEBGLDrawBuffers(1, context);
     t.deepEqual(extension.COLOR_ATTACHMENT0_WEBGL, context.COLOR_ATTACHMENT0_WEBGL);
     t.deepEqual(extension.COLOR_ATTACHMENT1_WEBGL, context.COLOR_ATTACHMENT1_WEBGL);

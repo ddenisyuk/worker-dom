@@ -1,4 +1,4 @@
-export class GLConstants {
+export class GLC {
   /**
    * The following defined constants and descriptions are directly ported from https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Constants
    *
